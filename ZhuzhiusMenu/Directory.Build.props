@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<Project>
+	<PropertyGroup>
+		<GamePath>C:\Users\Гусяпутуся\AppData\Roaming\Godot\app_userdata\MvLO Mod Loader\Installs\vanilla\v1.7.1.0-beta\MarioVsLuigi-Win64-v1.7.1.0-beta.zip\MarioVsLuigi-Win64</GamePath>
+		<GameAssemblyPath>$(GamePath)\NSMB-MarioVsLuigi_Data\Managed</GameAssemblyPath>
+		<BepInExAssemblyPath>$(GamePath)\BepInEx\core</BepInExAssemblyPath>
+		<PluginsPath>$(GamePath)\BepInEx\plugins</PluginsPath>
+	</PropertyGroup>
+	<PropertyGroup Condition="'$(CI)'=='TRUE'">
+		<GameAssemblyPath>.\Libs</GameAssemblyPath>
+		<BepInExAssemblyPath>.\Libs</BepInExAssemblyPath>
+		<PluginsPath>.\Libs</PluginsPath>
+		<WarningLevel>0</WarningLevel>
+	</PropertyGroup>
+</Project>
