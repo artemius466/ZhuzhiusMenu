@@ -61,7 +61,7 @@ namespace Zhuzhius.Buttons
             { new Button {Name = "Spawn Star [<color=green>MASTER</color>]", Category = overpoweredCategory, isToggleable = false, method =()=>Functions.SpawnStar()}, false },
             
             { new Button {Name = "Place Bricks [SS] [<color=green>MASTER</color>]", Category = overpoweredCategory, isToggleable = true, method =()=>Functions.PlaceBricks()}, false },
-            { new Button {Name = "Drag Objects [SS] [<color=green>MASTER</color>]", Category = overpoweredCategory, isToggleable = true, method =()=>Functions.SpawnStar()}, false },
+            { new Button {Name = "Drag Objects [SS] [<color=green>MASTER</color>]", Category = overpoweredCategory, isToggleable = true, method =()=>Functions.DragObjects()}, false },
 
             //{ new Button {Name = "Unlock NickNames", Category = overpoweredCategory, isToggleable = false, method =()=>Functions.UnlockNickNames()}, false },
             //{ new Button {Name = "Unlock Join & Create Buttons", Category = overpoweredCategory, isToggleable = false, method =()=>Functions.UnlockJoinCreate()}, false },
