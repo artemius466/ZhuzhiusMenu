@@ -174,6 +174,7 @@ namespace Zhuzhius
 
         private void OnRightMouseDown(InputAction.CallbackContext context)
         {
+            Debug.Log("asdasd");
             rightMouse = true;
         }
 
@@ -185,12 +186,14 @@ namespace Zhuzhius
 
         void OnEnable()
         {
-            leftClickAction.Enable(); // Включаем действие, когда объект активен
+            leftClickAction.Enable();
+            rightClickAction.Enable();
         }
 
         void OnDisable()
         {
-            leftClickAction.Disable(); // Отключаем действие, когда объект неактивен
+            leftClickAction.Disable();
+            rightClickAction.Disable();
         }
 
         void Update()

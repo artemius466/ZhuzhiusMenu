@@ -350,7 +350,6 @@ namespace Zhuzhius
                 if (ZhuzhiusMenu.leftMouse && !previousMouse)
                 {
                     previousMouse = true;
-                    Debug.Log("Mouse button pressed");
                     Vector2 mousePosition = Mouse.current.position.ReadValue();
                     Vector3 worldPosition = ZhuzhiusMenu.mainCamera.ScreenToWorldPoint(mousePosition);
                     worldPosition.z = 0;
@@ -372,12 +371,10 @@ namespace Zhuzhius
                     Vector3 worldPosition = ZhuzhiusMenu.mainCamera.ScreenToWorldPoint(mousePosition);
                     worldPosition.z = 0;
                     selectedObject.transform.position = worldPosition;
-                    Debug.Log("Dragging object: " + selectedObject.name);
                 }
                 if (!ZhuzhiusMenu.leftMouse && previousMouse)
                 {
                     previousMouse = false;
-                    Debug.Log("Mouse button released");
                     selectedObject = null;
                 }
 
