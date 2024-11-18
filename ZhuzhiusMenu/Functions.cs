@@ -86,7 +86,7 @@ namespace Zhuzhius
             GameManager.Instance.localPlayer.GetComponent<PlayerController>().propeller = false;
             GameManager.Instance.localPlayer.GetComponent<PlayerController>().startedSliding = false;
             //GameManager.Instance.localPlayer
-            UnityEngine.Debug.Log("YOOOO");
+            //UnityEngine.Debug.Log("YOOOO");
         }
 
         // Overpowered
