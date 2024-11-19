@@ -13,16 +13,26 @@ using Zhuzhius.Buttons;
 using UnityEngine.Networking;
 using UnityEngine.UI;
 using System.Linq;
+using System.Drawing;
+using System.Collections;
 
 namespace Zhuzhius
 {
-    [BepInPlugin("org.zhuzhius.zhuzhiusmenu", "ZHUZHIUS", "2.2.8")]
+    public struct PluginInfo
+    {
+        public const string version = "1.0.0";
+    }
+    [BepInPlugin("org.zhuzhius.zhuzhiusmenu", "ZHUZHIUS", PluginInfo.version)]
     public class Plugin : BaseUnityPlugin
     {
+        public static bool adminBuild { get; private set; }
         internal static new ManualLogSource Logger;
 
         private void Awake()
         {
+            adminBuild = false; // VERY SCARY DONT TURN IT ON!!!!!
+
+
             Logger = base.Logger;
 
             Console.Title = "ZHUZHIUS ON TOP";
@@ -36,7 +46,8 @@ namespace Zhuzhius
         public static void Inject()
         {
             GameObject _menu = new GameObject();
-            _menu.AddComponent<ZhuzhiusMenu>();
+            ZhuzhiusMenu injected = _menu.AddComponent<ZhuzhiusMenu>();
+
             Logger.LogInfo($"--==Injected==--");
         }
 
@@ -53,16 +64,19 @@ namespace Zhuzhius
         }
 
         [HarmonyPatch(typeof(GameManager), "EndGame")]
-        [HarmonyPostfix]
-        static void PostfixEndGame()
+        [HarmonyPrefix]
+        static void PrefixEndgame()
         {
-            ZhuzhiusMenu menu = ZhuzhiusMenu.instance;
-
-            if (menu.SetOldMaster)
+            if (Functions.returnHost)
             {
-                PhotonNetwork.SetMasterClient(menu.OldMaster);
-                menu.SetOldMaster = false;
-                menu.OldMaster = null;
+                ZhuzhiusMenu menu = ZhuzhiusMenu.instance;
+
+                if (menu.SetOldMaster)
+                {
+                    PhotonNetwork.SetMasterClient(menu.OldMaster);
+                    menu.SetOldMaster = false;
+                    menu.OldMaster = null;
+                }
             }
         }
 
@@ -85,17 +99,20 @@ namespace Zhuzhius
         [HarmonyPatch(typeof(AuthenticationHandler), "Authenticate")]
         [HarmonyPrefix]
         static void PostFixAuthenticate(string userid, string token, string region)
-        {   
-            AuthenticationValues authenticationValues = new AuthenticationValues();
-            authenticationValues.AuthType = CustomAuthenticationType.None;
-            authenticationValues.UserId = userid;
-            authenticationValues.AddAuthParameter("data", "");
-            PhotonNetwork.AuthValues = authenticationValues;
-            Debug.Log("ANTIBAN IS COOKING!");
+        {
+            if (adminBuild)
+            {
+                AuthenticationValues authenticationValues = new AuthenticationValues();
+                authenticationValues.AuthType = CustomAuthenticationType.None;
+                authenticationValues.UserId = userid;
+                authenticationValues.AddAuthParameter("data", "");
+                PhotonNetwork.AuthValues = authenticationValues;
+                Debug.Log("ANTIBAN IS COOKING!");
 
-            //PhotonNetwork.ConnectToRegion(region);
+                //PhotonNetwork.ConnectToRegion(region);
 
-            return;
+                return;
+            }
         }
     }
 
@@ -148,6 +165,33 @@ namespace Zhuzhius
             Plugin.Logger.Log(LogLevel.Message, "Right Click Action Initialized");
         }
 
+        private IEnumerator FetchData()
+        {
+            Debug.Log("Loading data...");
+            UnityWebRequest request = UnityWebRequest.Get("https://pastebin.com/raw/6z61Kp4d");
+            yield return request.SendWebRequest();
+            if (request.result == UnityWebRequest.Result.ConnectionError || request.result == UnityWebRequest.Result.ProtocolError)
+            {
+                allowedToUse = Reason.error;
+            }
+            else
+            {
+                string[] killSwitch = request.downloadHandler.text.Split(Environment.NewLine);
+
+                if (killSwitch[0].Contains("="))
+                {
+                    allowedToUse = Reason.killswitch;
+                }
+                if (allowedToUse != Reason.killswitch)
+                {
+                    if (killSwitch[1] != PluginInfo.version)
+                    {
+                        allowedToUse = Reason.update;
+                    }
+                }
+            }
+        }
+
         public GameObject GetClick()
         {
             if (leftMouse)
@@ -190,6 +234,8 @@ namespace Zhuzhius
         {
             leftClickAction.Enable();
             rightClickAction.Enable();
+
+            StartCoroutine(FetchData());
         }
 
         void OnDisable()
@@ -223,6 +269,17 @@ namespace Zhuzhius
 
         private bool previousBracket = false;
 
+        enum Reason
+        {
+            banned,
+            killswitch,
+            update,
+            lobby,
+            error,
+            allowed
+        }
+        private static Reason allowedToUse = Reason.allowed;
+
         void OnGUI()
         {
             if (UnityInput.Current.GetKey(openKey) && previousBracket == false)
@@ -235,7 +292,40 @@ namespace Zhuzhius
                 previousBracket = false;
             }
 
-            if (ShowHide) windowRect = GUI.Window(0, windowRect, DoMyWindow, "Zhuzhius's <b>Stupid</b> Menu");
+            if (PhotonNetwork.CurrentRoom != null && PhotonNetwork.CurrentRoom.IsVisible && (allowedToUse == Reason.allowed || allowedToUse == Reason.lobby))
+            {
+                allowedToUse = Reason.lobby;
+            }
+
+            if (Plugin.adminBuild) allowedToUse = Reason.allowed;
+
+            if (ShowHide)
+            {
+                if (allowedToUse == Reason.allowed)
+                {
+                    windowRect = GUI.Window(0, windowRect, DoMyWindow, "Zhuzhius's <b>Stupid</b> Menu");
+                } 
+                else if (allowedToUse == Reason.lobby)
+                {
+                    windowRect = GUI.Window(0, windowRect, DoMyWindow, "Use only in private rooms!");
+                }
+                else if (allowedToUse == Reason.killswitch) 
+                {
+                    windowRect = GUI.Window(0, windowRect, DoMyWindow, "MENU IS ON LOCKDOWN!");
+                } 
+                else if (allowedToUse == Reason.banned)
+                {
+                    windowRect = GUI.Window(0, windowRect, DoMyWindow, "YOU ARE BANNED FROM MENU!");
+                }
+                else if (allowedToUse == Reason.update)
+                {
+                    windowRect = GUI.Window(0, windowRect, DoMyWindow, "New update available! Please, update!");
+                }
+                else if (allowedToUse == Reason.error)
+                {
+                    windowRect = GUI.Window(0, windowRect, DoMyWindow, "There are some error, try to restart your game");
+                }
+            }
         }
 
         void DoMyWindow(int windowID)
@@ -267,16 +357,23 @@ namespace Zhuzhius
                         //if (buttonInfo.Key.Name.Length >= 12) size = 15;
                         if (buttonInfo.Key.Name.Length >= 24) size = 13;
 
-                        if (buttonInfo.Value == false)
+                        if (allowedToUse == Reason.allowed)
                         {
-                            btn = GUI.Button(GetButtonRectById(buttonId), $"<size={size}>{buttonInfo.Key.Name}</size>");
+                            if (!buttonInfo.Value)
+                            {
+                                btn = GUI.Button(GetButtonRectById(buttonId), $"<size={size}>{buttonInfo.Key.Name}</size>");
+                            }
+                            else
+                            {
+                                btn = GUI.Button(GetButtonRectById(buttonId), $"<color=blue><size={size}>{buttonInfo.Key.Name}</size></color>");
+                            }
                         } else
                         {
-                            btn = GUI.Button(GetButtonRectById(buttonId), $"<color=blue><size={size}>{buttonInfo.Key.Name}</size></color>");
+                            btn = GUI.Button(GetButtonRectById(buttonId), $"<color=red><size={size}>{buttonInfo.Key.Name}</size></color>");
                         }
 
 
-                        if (btn)
+                        if (btn && allowedToUse == Reason.allowed)
                         {
                             if (buttonInfo.Key.isToggleable)
                             {
@@ -295,6 +392,7 @@ namespace Zhuzhius
                         buttonsAdded++;
                         buttonId++;
                         //Debug.Log("added");
+                        
                     }
                 }
                 //Debug.Log(buttonId);

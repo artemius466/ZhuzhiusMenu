@@ -95,6 +95,18 @@ namespace Zhuzhius
         }
 
         // Overpowered
+        public static bool returnHost = false;
+
+        public static void ReturnHostEnable()
+        {
+            returnHost = true;
+        }
+
+        public static void ReturnHostDisable()
+        {
+            returnHost = false;
+        }
+
         public static void SetMasterSelf()
         {
             if (!PhotonNetwork.IsMasterClient)

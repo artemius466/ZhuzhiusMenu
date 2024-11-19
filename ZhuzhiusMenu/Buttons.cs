@@ -42,27 +42,27 @@ namespace Zhuzhius.Buttons
             { new Button {Name = "Speed Up Game", Category = movementCategory, isToggleable = false, method =()=>Functions.SpeedUp()}, false },
             { new Button {Name = "Slow Down Game", Category = movementCategory, isToggleable = false, method =()=>Functions.SlowDown()}, false },
             { new Button {Name = "Static Player", Category = movementCategory, isToggleable = true, enableMethod =()=>Functions.StaticPlayer(), disableMethod =()=>Functions.NormalPlayer()}, false },
-            { new Button {Name = "Air Jump", Category = movementCategory, isToggleable = true, method =()=>Functions.AirJump()}, false },
+            //{ new Button {Name = "Air Jump", Category = movementCategory, isToggleable = true, method =()=>Functions.AirJump()}, false },
 
             // Overpowered
             { new Button {Name = "Exit Overpowered Mods", Category = overpoweredCategory, isToggleable = false, method =()=>Functions.OpenMain()}, false },
-            { new Button {Name = "Auto Master", Category = overpoweredCategory, isToggleable = true, enableMethod =()=>Functions.AutoMasterEnable(), disableMethod =()=>Functions.AutoMasterDisable()}, false },
-            { new Button {Name = "Set Master", Category = overpoweredCategory, isToggleable = true, method =()=>Functions.SetMasterSelf()}, false },
+            { new Button {Name = "Return Host On End Game", Category = overpoweredCategory, isToggleable = true, enableMethod =()=>Functions.ReturnHostEnable(), disableMethod =()=>Functions.ReturnHostDisable()}, false },
+            { new Button {Name = "Make Host Self", Category = overpoweredCategory, isToggleable = true, method =()=>Functions.SetMasterSelf()}, false },
 
-            { new Button {Name = "Kill Player Gun [<color=green>MASTER</color>]", Category = overpoweredCategory, isToggleable = true, method =()=>Functions.KillGun(), enableMethod=()=>Functions.SilentMasterStart(), disableMethod=()=>Functions.SilentMasterStop()}, false },
-            { new Button {Name = "Kill All [<color=green>MASTER</color>]", Category = overpoweredCategory, isToggleable = false, method =()=>Functions.KillAll()}, false },
+            { new Button {Name = "Kill Player Gun [<color=green>HOST</color>]", Category = overpoweredCategory, isToggleable = true, method =()=>Functions.KillGun(), enableMethod=()=>Functions.SilentMasterStart(), disableMethod=()=>Functions.SilentMasterStop()}, false },
+            { new Button {Name = "Kill All [<color=green>HOST</color>]", Category = overpoweredCategory, isToggleable = false, method =()=>Functions.KillAll()}, false },
 
-            { new Button {Name = "Kick All [<color=green>MASTER</color>]", Category = overpoweredCategory, isToggleable = false, method =()=>Functions.KickAll()}, false },
+            { new Button {Name = "Kick All [<color=green>HOST</color>]", Category = overpoweredCategory, isToggleable = false, method =()=>Functions.KickAll()}, false },
 
-            { new Button {Name = "Instant Win [<color=green>MASTER</color>]", Category = overpoweredCategory, isToggleable = false, method =()=>Functions.InstantWin()}, false },
-            { new Button {Name = "Instant Win Gun [<color=green>MASTER</color>]", Category = overpoweredCategory, isToggleable = true, method =()=>Functions.InstantWinGun(), enableMethod=()=>Functions.SilentMasterStart(), disableMethod=()=>Functions.SilentMasterStop()}, false },
+            { new Button {Name = "Instant Win [<color=green>HOST</color>]", Category = overpoweredCategory, isToggleable = false, method =()=>Functions.InstantWin()}, false },
+            { new Button {Name = "Instant Win Gun [<color=green>HOST</color>]", Category = overpoweredCategory, isToggleable = true, method =()=>Functions.InstantWinGun(), enableMethod=()=>Functions.SilentMasterStart(), disableMethod=()=>Functions.SilentMasterStop()}, false },
 
-            { new Button {Name = "Destroy All [<color=green>MASTER</color>]", Category = overpoweredCategory, isToggleable = false, method =()=>Functions.DestroyAll()}, false },
+            { new Button {Name = "Destroy All [<color=green>HOST</color>]", Category = overpoweredCategory, isToggleable = false, method =()=>Functions.DestroyAll()}, false },
 
-            { new Button {Name = "Spawn Star [<color=green>MASTER</color>]", Category = overpoweredCategory, isToggleable = false, method =()=>Functions.SpawnStar()}, false },
+            { new Button {Name = "Spawn Star [<color=green>HOST</color>]", Category = overpoweredCategory, isToggleable = false, method =()=>Functions.SpawnStar()}, false },
             
-            { new Button {Name = "Place Bricks [SS] [<color=green>MASTER</color>]", Category = overpoweredCategory, isToggleable = true, method =()=>Functions.PlaceBricks()}, false },
-            { new Button {Name = "Drag Objects [SS] [<color=green>MASTER</color>]", Category = overpoweredCategory, isToggleable = true, method =()=>Functions.DragObjects()}, false },
+            { new Button {Name = "Place Bricks [SS] [<color=green>HOST</color>]", Category = overpoweredCategory, isToggleable = true, method =()=>Functions.PlaceBricks()}, false },
+            { new Button {Name = "Drag Objects [SS] [<color=green>HOST</color>]", Category = overpoweredCategory, isToggleable = true, method =()=>Functions.DragObjects()}, false },
 
             //{ new Button {Name = "Unlock NickNames", Category = overpoweredCategory, isToggleable = false, method =()=>Functions.UnlockNickNames()}, false },
             //{ new Button {Name = "Unlock Join & Create Buttons", Category = overpoweredCategory, isToggleable = false, method =()=>Functions.UnlockJoinCreate()}, false },
@@ -87,12 +87,12 @@ namespace Zhuzhius.Buttons
 
             // Sounds
             { new Button {Name = "Exit Sound Mods", Category = soundsCategory, isToggleable = false, method =()=>Functions.OpenMain()}, false },
-            { new Button {Name = "PlaySound Explode", Category = soundsCategory, isToggleable = false, method =()=>Functions.PlaySoundExplode()}, false },
-            { new Button {Name = "PlaySound Player Selected", Category = soundsCategory, isToggleable = false, method =()=>Functions.PlaySoundPlayer()}, false },
-            { new Button {Name = "PlaySound UI Quit", Category = soundsCategory, isToggleable = false, method =()=>Functions.PlaySoundUI_Quit()}, false },
-            { new Button {Name = "PlaySound 1UP", Category = soundsCategory, isToggleable = false, method =()=>Functions.PlaySoundUI_1UP()}, false },
-            { new Button {Name = "PlaySound Error", Category = soundsCategory, isToggleable = false, method =()=>Functions.PlaySoundUI_Error()}, false },
-            { new Button {Name = "PlaySound Player Death", Category = soundsCategory, isToggleable = false, method =()=>Functions.PlaySoundDeath()}, false },
+            { new Button {Name = "Play Sound Explode [SS]", Category = soundsCategory, isToggleable = false, method =()=>Functions.PlaySoundExplode()}, false },
+            { new Button {Name = "Play Sound Player Selected [SS]", Category = soundsCategory, isToggleable = false, method =()=>Functions.PlaySoundPlayer()}, false },
+            { new Button {Name = "Play Sound UI Quit [SS]", Category = soundsCategory, isToggleable = false, method =()=>Functions.PlaySoundUI_Quit()}, false },
+            { new Button {Name = "Play Sound 1UP [SS]", Category = soundsCategory, isToggleable = false, method =()=>Functions.PlaySoundUI_1UP()}, false },
+            { new Button {Name = "Play Sound Error [SS]", Category = soundsCategory, isToggleable = false, method =()=>Functions.PlaySoundUI_Error()}, false },
+            { new Button {Name = "Play Sound Player Death [SS]", Category = soundsCategory, isToggleable = false, method =()=>Functions.PlaySoundDeath()}, false },
         };
 
         public static Dictionary<Button, bool> GetButtonsInCategory(int category)
