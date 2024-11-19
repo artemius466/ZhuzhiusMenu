@@ -35,6 +35,7 @@ namespace Zhuzhius.Buttons
             { new Button {Name = "Overpowered Mods", Category = mainCategory, isToggleable = false, method =()=>Functions.OpenOverpowered()}, false },
             { new Button {Name = "Spam Mods", Category = mainCategory, isToggleable = false, method =()=>Functions.OpenSpam()}, false },
             { new Button {Name = "Powerup Mods", Category = mainCategory, isToggleable = false, method =()=>Functions.OpenPower()}, false },
+            { new Button {Name = "Sound Mods", Category = mainCategory, isToggleable = false, method =()=>Functions.OpenSounds()}, false },
 
             // Movement
             { new Button {Name = "Exit Movement Mods", Category = movementCategory, isToggleable = false, method =()=>Functions.OpenMain()}, false },
@@ -92,7 +93,6 @@ namespace Zhuzhius.Buttons
             { new Button {Name = "PlaySound 1UP", Category = soundsCategory, isToggleable = false, method =()=>Functions.PlaySoundUI_1UP()}, false },
             { new Button {Name = "PlaySound Error", Category = soundsCategory, isToggleable = false, method =()=>Functions.PlaySoundUI_Error()}, false },
             { new Button {Name = "PlaySound Player Death", Category = soundsCategory, isToggleable = false, method =()=>Functions.PlaySoundDeath()}, false },
-
         };
 
         public static Dictionary<Button, bool> GetButtonsInCategory(int category)

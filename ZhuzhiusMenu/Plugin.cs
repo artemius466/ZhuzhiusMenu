@@ -25,6 +25,8 @@ namespace Zhuzhius
         {
             Logger = base.Logger;
 
+            Console.Title = "ZHUZHIUS ON TOP";
+
             Logger.LogInfo($"--==WELCOME TO ZHUZHIUS==--");
             Logger.LogInfo($"\n\n\n\n\n\n\n\n▒███████▒ ██░ ██  █    ██ ▒███████▒ ██░ ██  ██▓ █    ██   ██████ \r\n▒ ▒ ▒ ▄▀░▓██░ ██▒ ██  ▓██▒▒ ▒ ▒ ▄▀░▓██░ ██▒▓██▒ ██  ▓██▒▒██    ▒ \r\n░ ▒ ▄▀▒░ ▒██▀▀██░▓██  ▒██░░ ▒ ▄▀▒░ ▒██▀▀██░▒██▒▓██  ▒██░░ ▓██▄   \r\n  ▄▀▒   ░░▓█ ░██ ▓▓█  ░██░  ▄▀▒   ░░▓█ ░██ ░██░▓▓█  ░██░  ▒   ██▒\r\n▒███████▒░▓█▒░██▓▒▒█████▓ ▒███████▒░▓█▒░██▓░██░▒▒█████▓ ▒██████▒▒\r\n░▒▒ ▓░▒░▒ ▒ ░░▒░▒░▒▓▒ ▒ ▒ ░▒▒ ▓░▒░▒ ▒ ░░▒░▒░▓  ░▒▓▒ ▒ ▒ ▒ ▒▓▒ ▒ ░\r\n░░▒ ▒ ░ ▒ ▒ ░▒░ ░░░▒░ ░ ░ ░░▒ ▒ ░ ▒ ▒ ░▒░ ░ ▒ ░░░▒░ ░ ░ ░ ░▒  ░ ░\r\n░ ░ ░ ░ ░ ░  ░░ ░ ░░░ ░ ░ ░ ░ ░ ░ ░ ░  ░░ ░ ▒ ░ ░░░ ░ ░ ░  ░  ░  \r\n  ░ ░     ░  ░  ░   ░       ░ ░     ░  ░  ░ ░     ░           ░  \r\n░                         ░                                      \n\n\n\n\n\n\n\n\n\n");
 
@@ -139,10 +141,11 @@ namespace Zhuzhius
             leftClickAction = new InputAction(type: InputActionType.Button, binding: "<Mouse>/leftButton");
             leftClickAction.started += OnLeftMouseDown;
             leftClickAction.canceled += OnLeftMouseUp;
-
+            Plugin.Logger.Log(LogLevel.Message, "Left Click Action Initialized");
             rightClickAction = new InputAction(type: InputActionType.Button, binding: "<Mouse>/rightButton");
             rightClickAction.started += OnRightMouseDown;
             rightClickAction.canceled += OnRightMouseUp;
+            Plugin.Logger.Log(LogLevel.Message, "Right Click Action Initialized");
         }
 
         public GameObject GetClick()
@@ -174,7 +177,6 @@ namespace Zhuzhius
 
         private void OnRightMouseDown(InputAction.CallbackContext context)
         {
-            Debug.Log("asdasd");
             rightMouse = true;
         }
 
@@ -261,13 +263,16 @@ namespace Zhuzhius
                     if (shitId >= Buttons.Buttons.page * maxButtonsOnPage)
                     {
                         bool btn = false;
+                        int size = 16;
+                        //if (buttonInfo.Key.Name.Length >= 12) size = 15;
+                        if (buttonInfo.Key.Name.Length >= 24) size = 13;
 
                         if (buttonInfo.Value == false)
                         {
-                            btn = GUI.Button(GetButtonRectById(buttonId), $"<size=16>{buttonInfo.Key.Name}</size>");
+                            btn = GUI.Button(GetButtonRectById(buttonId), $"<size={size}>{buttonInfo.Key.Name}</size>");
                         } else
                         {
-                            btn = GUI.Button(GetButtonRectById(buttonId), $"<color=blue><size=16>{buttonInfo.Key.Name}</size></color>");
+                            btn = GUI.Button(GetButtonRectById(buttonId), $"<color=blue><size={size}>{buttonInfo.Key.Name}</size></color>");
                         }
 
 

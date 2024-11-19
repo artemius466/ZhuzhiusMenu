@@ -57,6 +57,11 @@ namespace Zhuzhius
             Buttons.Buttons.category = Buttons.Buttons.powerCategory;
         }
 
+        public static void OpenSounds()
+        {
+            Buttons.Buttons.category = Buttons.Buttons.soundsCategory;
+        }
+
 
         public static void SpeedUp()
         {
