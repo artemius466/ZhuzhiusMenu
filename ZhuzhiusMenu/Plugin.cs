@@ -296,6 +296,11 @@ namespace Zhuzhius
             {
                 allowedToUse = Reason.lobby;
             }
+            if (PhotonNetwork.CurrentRoom != null && !PhotonNetwork.CurrentRoom.IsVisible && (allowedToUse == Reason.allowed || allowedToUse == Reason.lobby))
+            {
+                allowedToUse = Reason.allowed;
+            }
+
 
             if (Plugin.adminBuild) allowedToUse = Reason.allowed;
 
