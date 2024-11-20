@@ -32,6 +32,23 @@ namespace Zhuzhius
             return null;
         }
 
+        public static GameObject GetClick()
+        {
+            if (ZhuzhiusControls.leftMouse)
+            {
+                Vector2 mousePosition = Mouse.current.position.ReadValue();
+                Vector3 worldPosition = ZhuzhiusVariables.mainCamera.ScreenToWorldPoint(mousePosition);
+
+                worldPosition.z = 0;
+                RaycastHit2D hit = Physics2D.Raycast(worldPosition, Vector2.zero);
+                return hit.collider.gameObject;
+            }
+            else
+            {
+                return null;
+            }
+        }
+
         public static void OpenMovement()
         {
             Buttons.Buttons.category = Buttons.Buttons.movementCategory;
@@ -111,8 +128,8 @@ namespace Zhuzhius
         {
             if (!PhotonNetwork.IsMasterClient)
             {
-                ZhuzhiusMenu.instance.OldMaster = PhotonNetwork.MasterClient;
-                ZhuzhiusMenu.instance.SetOldMaster = true;
+                ZhuzhiusVariables.OldMaster = PhotonNetwork.MasterClient;
+                ZhuzhiusVariables.SetOldMaster = true;
                 Player target = PhotonNetwork.LocalPlayer;
                 PhotonNetwork.SetMasterClient(target);
             }
@@ -120,7 +137,6 @@ namespace Zhuzhius
 
         public static void KillAll()
         {
-            SilentMasterStart();
             if (PhotonNetwork.IsMasterClient)
             {
                 foreach (Player sigma in PhotonNetwork.PlayerListOthers)
@@ -128,15 +144,13 @@ namespace Zhuzhius
                     GetPhotonViewByPlayer(sigma).RPC("Death", RpcTarget.All, false, false);
                 }
             }
-
-            SilentMasterStop();
         }
 
         public static void KillGun()
         {
             if (PhotonNetwork.IsMasterClient)
             {
-                GameObject target = ZhuzhiusMenu.instance.GetClick();
+                GameObject target = GetClick();
 
                 if (target != null)
                 {
@@ -147,19 +161,17 @@ namespace Zhuzhius
 
         public static void InstantWin()
         {
-            SilentMasterStart();
             if (PhotonNetwork.IsMasterClient)
             {
                 PhotonNetwork.RaiseEvent(19, PhotonNetwork.LocalPlayer, NetworkUtils.EventAll, SendOptions.SendReliable);
             }
-            SilentMasterStop();
         }
 
         public static void InstantWinGun()
         {
             if (PhotonNetwork.IsMasterClient)
             {
-                GameObject target = ZhuzhiusMenu.instance.GetClick();
+                GameObject target = GetClick();
 
                 if (target != null)
                 {
@@ -175,32 +187,26 @@ namespace Zhuzhius
 
         public static void SpawnStar()
         {
-            SilentMasterStart();
             if (PhotonNetwork.IsMasterClient)
             {
                 RespawnStar(GameManager.Instance.localPlayer.transform.position + (GameManager.Instance.localPlayer.GetComponent<PlayerController>().facingRight ? Vector3.right : Vector3.left) + new Vector3(0, 0.2f, 0));
             }
-            SilentMasterStop();
         }
 
         public static void KickAll()
         {
-            SilentMasterStart();
             if (PhotonNetwork.IsMasterClient)
             {
                 PhotonNetwork.InstantiateRoomObject("Prefabs/Powerup/1-Up", new Vector3(0, 0, 0), Quaternion.identity);
             }
-            SilentMasterStop();
         }
 
         public static void DestroyAll()
         {
-            SilentMasterStart();
             if (PhotonNetwork.IsMasterClient)
             {
                 PhotonNetwork.DestroyAll();
             }
-            SilentMasterStop();
         }
 
         private static Vector3 RandomPointOfPlayers()
@@ -252,87 +258,6 @@ namespace Zhuzhius
             PhotonNetwork.InstantiateRoomObject("Prefabs/LooseCoin", RandomPointOfPlayers(), Quaternion.identity);
         }
 
-        public static bool SilentMaster;
-        public static bool AutoMaster;
-
-        public static IEnumerator ReturnMasterAfter1Sec()
-        {
-            yield return new WaitForSecondsRealtime(0.02f); // shitty code
-
-            ZhuzhiusMenu menu = ZhuzhiusMenu.instance;
-
-            if (SilentMaster)
-            {
-                PhotonNetwork.SetMasterClient(menu.OldMaster);
-                UnityEngine.Debug.Log($"Master returned to {menu.OldMaster.NickName}!");
-                menu.SetOldMaster = false;
-                menu.OldMaster = null;
-            }
-        }
-
-        public static void SilentMasterStart()
-        {
-
-            if (!PhotonNetwork.IsMasterClient && SilentMaster)
-            {
-                UnityEngine.Debug.Log($"Giving master to self...");
-                ZhuzhiusMenu.instance.SetOldMaster = true;
-                ZhuzhiusMenu.instance.OldMaster = PhotonNetwork.MasterClient;
-
-                PhotonNetwork.SetMasterClient(PhotonNetwork.LocalPlayer);
-            }
-        }
-
-        public static void SilentMasterStop()
-        {
-            if (PhotonNetwork.IsMasterClient && SilentMaster)
-            {
-                UnityEngine.Debug.Log($"Returning master...");
-                ZhuzhiusMenu.instance.StartCoroutine(ReturnMasterAfter1Sec());
-            }
-        }
-
-        public static void SilentMasterEnable()
-        {
-            Debug.Log("Silent master on");
-            SilentMaster = true;
-        }
-        public static void SilentMasterDisable()
-        {
-            Debug.Log("Silent master off");
-            SilentMaster = false;
-        }
-
-        public static void BanPlayer(Player target)
-        {
-            object[] array;
-            Utils.GetCustomProperty<object[]>(Enums.NetRoomProperties.Bans, out array, null);
-
-            List<NameIdPair> list = array.Cast<NameIdPair>().ToList<NameIdPair>();
-            NameIdPair nameIdPair = new NameIdPair
-            {
-                name = target.NickName,
-                userId = target.UserId
-            };
-            list.Add(nameIdPair);
-            ExitGames.Client.Photon.Hashtable hashtable = new ExitGames.Client.Photon.Hashtable();
-            object bans = Enums.NetRoomProperties.Bans;
-            hashtable[bans] = list.ToArray();
-            ExitGames.Client.Photon.Hashtable hashtable2 = hashtable;
-            PhotonNetwork.CurrentRoom.SetCustomProperties(hashtable2, null, NetworkUtils.forward);
-            PhotonNetwork.CloseConnection(target);
-        }
-
-        public static void AutoMasterEnable()
-        {
-            AutoMaster = true;
-        }
-
-        public static void AutoMasterDisable()
-        {
-            AutoMaster = false;
-        }
-
         public static void SpawnPrefabInPlayer(GameObject player, string prefab)
         {
             PhotonNetwork.InstantiateRoomObject(prefab, player.transform.position, Quaternion.identity);
@@ -364,11 +289,11 @@ namespace Zhuzhius
         {
             if (PhotonNetwork.IsMasterClient)
             {
-                if (ZhuzhiusMenu.leftMouse && !previousMouse)
+                if (ZhuzhiusControls.leftMouse && !previousMouse)
                 {
                     previousMouse = true;
                     Vector2 mousePosition = Mouse.current.position.ReadValue();
-                    Vector3 worldPosition = ZhuzhiusMenu.mainCamera.ScreenToWorldPoint(mousePosition);
+                    Vector3 worldPosition = ZhuzhiusVariables.mainCamera.ScreenToWorldPoint(mousePosition);
                     worldPosition.z = 0;
                     RaycastHit2D hit = Physics2D.Raycast(worldPosition, Vector2.zero);
                     if (hit.collider != null)
@@ -382,14 +307,14 @@ namespace Zhuzhius
                         Debug.Log(selectedObject);
                     }
                 }
-                if (ZhuzhiusMenu.leftMouse && previousMouse && selectedObject != null)
+                if (ZhuzhiusControls.leftMouse && previousMouse && selectedObject != null)
                 {
                     Vector2 mousePosition = Mouse.current.position.ReadValue();
-                    Vector3 worldPosition = ZhuzhiusMenu.mainCamera.ScreenToWorldPoint(mousePosition);
+                    Vector3 worldPosition = ZhuzhiusVariables.mainCamera.ScreenToWorldPoint(mousePosition);
                     worldPosition.z = 0;
                     selectedObject.transform.position = worldPosition;
                 }
-                if (!ZhuzhiusMenu.leftMouse && previousMouse)
+                if (!ZhuzhiusControls.leftMouse && previousMouse)
                 {
                     previousMouse = false;
                     selectedObject = null;
@@ -402,10 +327,10 @@ namespace Zhuzhius
         {
             if (PhotonNetwork.IsMasterClient)
             {
-                if (ZhuzhiusMenu.leftMouse)
+                if (ZhuzhiusControls.leftMouse)
                 {
                     Tilemap tilemap = GameManager.Instance.tilemap;
-                    Vector3 mouseWorldPos = ZhuzhiusMenu.mainCamera.ScreenToWorldPoint(Mouse.current.position.ReadValue());
+                    Vector3 mouseWorldPos = ZhuzhiusVariables.mainCamera.ScreenToWorldPoint(Mouse.current.position.ReadValue());
                     Vector3Int tilePosition = tilemap.WorldToCell(mouseWorldPos);
                     Vector3Int PlacetilePosition = Vector3Int.FloorToInt(tilePosition);
                     object[] paramaters = { tilePosition.x, tilePosition.y, 1, 1, new string[] { "SpecialTiles/BrownBrick" } };
@@ -416,7 +341,7 @@ namespace Zhuzhius
                     };
                     GameManager.Instance.SendAndExecuteEvent(Enums.NetEventIds.SetTileBatch, paramaters, SendOptions.SendReliable, options);
                 }
-                if (ZhuzhiusMenu.rightMouse)
+                if (ZhuzhiusControls.rightMouse)
                 {
                     Tilemap tilemap = GameManager.Instance.tilemap;
                     Vector3 mouseWorldPos = Camera.main.ScreenToWorldPoint(Mouse.current.position.ReadValue());
@@ -432,6 +357,21 @@ namespace Zhuzhius
                 }
 
             }
+        }
+
+        public static void InteractTile()
+        {
+            if (ZhuzhiusControls.leftMouse)
+            {
+                Tilemap tilemap = GameManager.Instance.tilemap;
+                Vector3 mouseWorldPos = ZhuzhiusVariables.mainCamera.ScreenToWorldPoint(Mouse.current.position.ReadValue());
+                Vector3Int tilePosition = tilemap.WorldToCell(mouseWorldPos);
+                Vector3Int GetTilePosition = Vector3Int.FloorToInt(tilePosition);
+                TileBase tile = GameManager.Instance.tilemap.GetTile(GetTilePosition);
+                InteractableTile interactableTile = tile as InteractableTile;
+                interactableTile.Interact(GameManager.Instance.localPlayer.GetComponent<PlayerController>(), InteractableTile.InteractionDirection.Up, Utils.TilemapToWorldPosition(GetTilePosition, null));
+            }
+
         }
 
         public static void PlaySoundExplode()

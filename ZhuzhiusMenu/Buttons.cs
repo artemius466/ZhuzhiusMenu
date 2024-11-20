@@ -49,13 +49,13 @@ namespace Zhuzhius.Buttons
             { new Button {Name = "Return Host On End Game", Category = overpoweredCategory, isToggleable = true, enableMethod =()=>Functions.ReturnHostEnable(), disableMethod =()=>Functions.ReturnHostDisable()}, false },
             { new Button {Name = "Make Host Self", Category = overpoweredCategory, isToggleable = true, method =()=>Functions.SetMasterSelf()}, false },
 
-            { new Button {Name = "Kill Player Gun [<color=green>HOST</color>]", Category = overpoweredCategory, isToggleable = true, method =()=>Functions.KillGun(), enableMethod=()=>Functions.SilentMasterStart(), disableMethod=()=>Functions.SilentMasterStop()}, false },
+            { new Button {Name = "Kill Player Gun [<color=green>HOST</color>]", Category = overpoweredCategory, isToggleable = true, method =()=>Functions.KillGun()}, false },
             { new Button {Name = "Kill All [<color=green>HOST</color>]", Category = overpoweredCategory, isToggleable = false, method =()=>Functions.KillAll()}, false },
 
             { new Button {Name = "Kick All [<color=green>HOST</color>]", Category = overpoweredCategory, isToggleable = false, method =()=>Functions.KickAll()}, false },
 
             { new Button {Name = "Instant Win [<color=green>HOST</color>]", Category = overpoweredCategory, isToggleable = false, method =()=>Functions.InstantWin()}, false },
-            { new Button {Name = "Instant Win Gun [<color=green>HOST</color>]", Category = overpoweredCategory, isToggleable = true, method =()=>Functions.InstantWinGun(), enableMethod=()=>Functions.SilentMasterStart(), disableMethod=()=>Functions.SilentMasterStop()}, false },
+            { new Button {Name = "Instant Win Gun [<color=green>HOST</color>]", Category = overpoweredCategory, isToggleable = true, method =()=>Functions.InstantWinGun()}, false },
 
             { new Button {Name = "Destroy All [<color=green>HOST</color>]", Category = overpoweredCategory, isToggleable = false, method =()=>Functions.DestroyAll()}, false },
 
@@ -63,17 +63,18 @@ namespace Zhuzhius.Buttons
             
             { new Button {Name = "Place Bricks [SS] [<color=green>HOST</color>]", Category = overpoweredCategory, isToggleable = true, method =()=>Functions.PlaceBricks()}, false },
             { new Button {Name = "Drag Objects [SS] [<color=green>HOST</color>]", Category = overpoweredCategory, isToggleable = true, method =()=>Functions.DragObjects()}, false },
+            { new Button {Name = "Interact With Tiles [SS]", Category = overpoweredCategory, isToggleable = true, method =()=>Functions.InteractTile()}, false },
 
             //{ new Button {Name = "Unlock NickNames", Category = overpoweredCategory, isToggleable = false, method =()=>Functions.UnlockNickNames()}, false },
             //{ new Button {Name = "Unlock Join & Create Buttons", Category = overpoweredCategory, isToggleable = false, method =()=>Functions.UnlockJoinCreate()}, false },
 
             // Spam
             { new Button {Name = "Exit Spam Mods", Category = spamCategory, isToggleable = false, method =()=>Functions.OpenMain()}, false },
-            { new Button {Name = "Fireball Rain [<color=green>MASTER</color>]", Category = spamCategory, isToggleable = true, method =()=>Functions.RandomInstantiateFireball(), enableMethod=()=>Functions.SilentMasterStart(), disableMethod=()=>Functions.SilentMasterStop()}, false },
-            { new Button {Name = "Iceball Rain [<color=green>MASTER</color>]", Category = spamCategory, isToggleable = true, method =()=>Functions.RandomInstantiateIceball(), enableMethod=()=>Functions.SilentMasterStart(), disableMethod=()=>Functions.SilentMasterStop()}, false },
-            { new Button {Name = "Power Up Rain [<color=green>MASTER</color>]", Category = spamCategory, isToggleable = true, method =()=>Functions.RandomInstantiateShit(), enableMethod=()=>Functions.SilentMasterStart(), disableMethod=()=>Functions.SilentMasterStop()}, false },
-            { new Button {Name = "Enemy Rain [<color=green>MASTER</color>]", Category = spamCategory, isToggleable = true, method =()=>Functions.RandomInstantiateEnemies(), enableMethod=()=>Functions.SilentMasterStart(), disableMethod=()=>Functions.SilentMasterStop()}, false },
-            { new Button {Name = "Coin Rain [<color=green>MASTER</color>]", Category = spamCategory, isToggleable = true, method =()=>Functions.RandomInstantiateCoin(), enableMethod=()=>Functions.SilentMasterStart(), disableMethod=()=>Functions.SilentMasterStop()}, false },
+            { new Button {Name = "Fireball Rain [<color=green>MASTER</color>]", Category = spamCategory, isToggleable = true, method =()=>Functions.RandomInstantiateFireball()}, false },
+            { new Button {Name = "Iceball Rain [<color=green>MASTER</color>]", Category = spamCategory, isToggleable = true, method =()=>Functions.RandomInstantiateIceball()}, false },
+            { new Button {Name = "Power Up Rain [<color=green>MASTER</color>]", Category = spamCategory, isToggleable = true, method =()=>Functions.RandomInstantiateShit()}, false },
+            { new Button {Name = "Enemy Rain [<color=green>MASTER</color>]", Category = spamCategory, isToggleable = true, method =()=>Functions.RandomInstantiateEnemies()}, false },
+            { new Button {Name = "Coin Rain [<color=green>MASTER</color>]", Category = spamCategory, isToggleable = true, method =()=>Functions.RandomInstantiateCoin()}, false },
 
             { new Button {Name = "Exit Powerup Mods", Category = powerCategory, isToggleable = false, method =()=>Functions.OpenMain()}, false },
             { new Button {Name = "Be BIG [<color=green>MASTER</color>]", Category = powerCategory, isToggleable = false, method =()=>Functions.SpawnPrefabInPlayer(GameManager.Instance.localPlayer, "Prefabs/Powerup/MegaMushroom")}, false },

@@ -18,89 +18,47 @@ using System.Collections;
 
 namespace Zhuzhius
 {
-    public struct PluginInfo
+    public struct ZhuzhiusBuildInfo
     {
+        public const bool adminBuild = false;
         public const string version = "1.0.0";
     }
-    [BepInPlugin("org.zhuzhius.zhuzhiusmenu", "ZHUZHIUS", PluginInfo.version)]
-    public class Plugin : BaseUnityPlugin
+
+    public class ZhuzhiusMain
     {
-        public static bool adminBuild { get; private set; }
-        internal static new ManualLogSource Logger;
-
-        private void Awake()
-        {
-            adminBuild = false; // VERY SCARY DONT TURN IT ON!!!!!
-
-
-            Logger = base.Logger;
-
-            Console.Title = "ZHUZHIUS ON TOP";
-
-            Logger.LogInfo($"--==WELCOME TO ZHUZHIUS==--");
-            Logger.LogInfo($"\n\n\n\n\n\n\n\n▒███████▒ ██░ ██  █    ██ ▒███████▒ ██░ ██  ██▓ █    ██   ██████ \r\n▒ ▒ ▒ ▄▀░▓██░ ██▒ ██  ▓██▒▒ ▒ ▒ ▄▀░▓██░ ██▒▓██▒ ██  ▓██▒▒██    ▒ \r\n░ ▒ ▄▀▒░ ▒██▀▀██░▓██  ▒██░░ ▒ ▄▀▒░ ▒██▀▀██░▒██▒▓██  ▒██░░ ▓██▄   \r\n  ▄▀▒   ░░▓█ ░██ ▓▓█  ░██░  ▄▀▒   ░░▓█ ░██ ░██░▓▓█  ░██░  ▒   ██▒\r\n▒███████▒░▓█▒░██▓▒▒█████▓ ▒███████▒░▓█▒░██▓░██░▒▒█████▓ ▒██████▒▒\r\n░▒▒ ▓░▒░▒ ▒ ░░▒░▒░▒▓▒ ▒ ▒ ░▒▒ ▓░▒░▒ ▒ ░░▒░▒░▓  ░▒▓▒ ▒ ▒ ▒ ▒▓▒ ▒ ░\r\n░░▒ ▒ ░ ▒ ▒ ░▒░ ░░░▒░ ░ ░ ░░▒ ▒ ░ ▒ ▒ ░▒░ ░ ▒ ░░░▒░ ░ ░ ░ ░▒  ░ ░\r\n░ ░ ░ ░ ░ ░  ░░ ░ ░░░ ░ ░ ░ ░ ░ ░ ░ ░  ░░ ░ ▒ ░ ░░░ ░ ░ ░  ░  ░  \r\n  ░ ░     ░  ░  ░   ░       ░ ░     ░  ░  ░ ░     ░           ░  \r\n░                         ░                                      \n\n\n\n\n\n\n\n\n\n");
-
-            Harmony.CreateAndPatchAll(typeof(Plugin));
-        }
-
         public static void Inject()
         {
+            Harmony.CreateAndPatchAll(typeof(ZhuzhiusPatches));
+
             GameObject _menu = new GameObject();
-            ZhuzhiusMenu injected = _menu.AddComponent<ZhuzhiusMenu>();
-
-            Logger.LogInfo($"--==Injected==--");
+            _menu.AddComponent<ZhuzhiusMenu>();
         }
+    }
 
-        [HarmonyPatch(typeof(MainMenuManager), "Start")]
-        [HarmonyPostfix]
-        static void PostFixStart()
-        {
-            ZhuzhiusMenu menu = ZhuzhiusMenu.instance;
-            if (menu == null)
-            {
-                Logger.LogInfo($"--==Injecting==--");
-                Inject();
-            }
-        }
-
+    public class ZhuzhiusPatches
+    {
         [HarmonyPatch(typeof(GameManager), "EndGame")]
         [HarmonyPrefix]
         static void PrefixEndgame()
         {
             if (Functions.returnHost)
             {
-                ZhuzhiusMenu menu = ZhuzhiusMenu.instance;
-
-                if (menu.SetOldMaster)
+                if (ZhuzhiusVariables.SetOldMaster)
                 {
-                    PhotonNetwork.SetMasterClient(menu.OldMaster);
-                    menu.SetOldMaster = false;
-                    menu.OldMaster = null;
+                    PhotonNetwork.SetMasterClient(ZhuzhiusVariables.OldMaster);
+                    ZhuzhiusVariables.SetOldMaster = false;
+                    ZhuzhiusVariables.OldMaster = null;
                 }
             }
         }
 
-        [HarmonyPatch(typeof(MainMenuManager), "OnJoinedRoom")]
-        [HarmonyPostfix]
-        static void PostfixJoined()
-        {
-            if (Functions.AutoMaster && !PhotonNetwork.IsMasterClient)
-            {
-                Player toKick = PhotonNetwork.MasterClient;
-
-                PhotonNetwork.SetMasterClient(PhotonNetwork.LocalPlayer);
-
-                //Functions.BanPlayer(toKick);
-            }
-        }
-
-        private static readonly string URL = "https://mariovsluigi.azurewebsites.net/auth/init";
+        private const string URL = "https://mariovsluigi.azurewebsites.net/auth/init";
 
         [HarmonyPatch(typeof(AuthenticationHandler), "Authenticate")]
         [HarmonyPrefix]
         static void PostFixAuthenticate(string userid, string token, string region)
         {
-            if (adminBuild)
+            if (ZhuzhiusBuildInfo.adminBuild)
             {
                 AuthenticationValues authenticationValues = new AuthenticationValues();
                 authenticationValues.AuthType = CustomAuthenticationType.None;
@@ -116,53 +74,95 @@ namespace Zhuzhius
         }
     }
 
-    public class ZhuzhiusMenu : MonoBehaviour
+    public class ZhuzhiusVariables
     {
         public static ZhuzhiusMenu instance;
 
-        public Player OldMaster;
-        public bool SetOldMaster;
+        public static Player OldMaster;
+        public static bool SetOldMaster;
 
-        public bool ShowHide = false;
-        public GUIStyle Style;
-        public Rect wRect = new Rect(10, 10, 160, 70);
+        public static bool ShowHide = false;
+        public static GUIStyle Style;
+        public static Rect wRect = new Rect(10, 10, 160, 70);
 
-        // Private controls
-        private InputAction leftClickAction;
-        private InputAction rightClickAction;
+        public const KeyCode openKey = KeyCode.RightShift;
+        public static Rect windowRect = new Rect(35, 35, 220, 500);
+        public static Rect buttonRect = new Rect((windowRect.width / 2) - 95, 30, 190, 40);
+        public const int maxButtonsOnPage = 8;
+
+        // other
+        public static Camera mainCamera { get { return Camera.main; } }
+
+    }
+
+    public class ZhuzhiusControls : MonoBehaviour
+    {
+        private static InputAction leftClickAction;
+        private static InputAction rightClickAction;
 
         // Controls
         public static bool leftMouse;
         public static bool rightMouse;
 
-        // other
-        public static Camera mainCamera { get {  return Camera.main; } }
+        public static void InitControls()
+        {
+            leftClickAction = new InputAction(type: InputActionType.Button, binding: "<Mouse>/leftButton");
+            leftClickAction.started += OnLeftMouseDown;
+            leftClickAction.canceled += OnLeftMouseUp;
+            rightClickAction = new InputAction(type: InputActionType.Button, binding: "<Mouse>/rightButton");
+            rightClickAction.started += OnRightMouseDown;
+            rightClickAction.canceled += OnRightMouseUp;
+        }
+
+        private static void OnLeftMouseDown(InputAction.CallbackContext context)
+        {
+            leftMouse = true;
+        }
+
+        private static void OnLeftMouseUp(InputAction.CallbackContext context)
+        {
+            leftMouse = false;
+        }
+
+        private static void OnRightMouseDown(InputAction.CallbackContext context)
+        {
+            rightMouse = true;
+        }
+
+        private static void OnRightMouseUp(InputAction.CallbackContext context)
+        {
+            rightMouse = false;
+        }
+
+
+        void OnEnable()
+        {
+            leftClickAction.Enable();
+            rightClickAction.Enable();
+        }
+
+        void OnDisable()
+        {
+            leftClickAction.Disable();
+            rightClickAction.Disable();
+        }
+    }
+
+    public class ZhuzhiusMenu : MonoBehaviour
+    {
 
         private void Awake()
         {
-            if (instance == null)
+            if (ZhuzhiusVariables.instance == null)
             {
-                instance = this;
+                ZhuzhiusVariables.instance = this;
                 DontDestroyOnLoad(this);
+                ZhuzhiusControls.InitControls();
             }
             else
             {
                 Destroy(this);
             }
-
-            InitControls();
-        }
-
-        private void InitControls()
-        {
-            leftClickAction = new InputAction(type: InputActionType.Button, binding: "<Mouse>/leftButton");
-            leftClickAction.started += OnLeftMouseDown;
-            leftClickAction.canceled += OnLeftMouseUp;
-            Plugin.Logger.Log(LogLevel.Message, "Left Click Action Initialized");
-            rightClickAction = new InputAction(type: InputActionType.Button, binding: "<Mouse>/rightButton");
-            rightClickAction.started += OnRightMouseDown;
-            rightClickAction.canceled += OnRightMouseUp;
-            Plugin.Logger.Log(LogLevel.Message, "Right Click Action Initialized");
         }
 
         private IEnumerator FetchData()
@@ -184,64 +184,12 @@ namespace Zhuzhius
                 }
                 if (allowedToUse != Reason.killswitch)
                 {
-                    if (killSwitch[1] != PluginInfo.version)
+                    if (killSwitch[1] != ZhuzhiusBuildInfo.version)
                     {
                         allowedToUse = Reason.update;
                     }
                 }
             }
-        }
-
-        public GameObject GetClick()
-        {
-            if (leftMouse)
-            {
-                Vector2 mousePosition = Mouse.current.position.ReadValue();
-                Vector3 worldPosition = mainCamera.ScreenToWorldPoint(mousePosition);
-
-                worldPosition.z = 0;
-                RaycastHit2D hit = Physics2D.Raycast(worldPosition, Vector2.zero);
-                return hit.collider.gameObject;
-            }
-            else
-            {
-                return null;
-            }
-        }
-
-        private void OnLeftMouseDown(InputAction.CallbackContext context)
-        {
-            leftMouse = true;
-        }
-
-        private void OnLeftMouseUp(InputAction.CallbackContext context)
-        {
-            leftMouse = false;
-        }
-
-        private void OnRightMouseDown(InputAction.CallbackContext context)
-        {
-            rightMouse = true;
-        }
-
-        private void OnRightMouseUp(InputAction.CallbackContext context)
-        {
-            rightMouse = false;
-        }
-
-
-        void OnEnable()
-        {
-            leftClickAction.Enable();
-            rightClickAction.Enable();
-
-            StartCoroutine(FetchData());
-        }
-
-        void OnDisable()
-        {
-            leftClickAction.Disable();
-            rightClickAction.Disable();
         }
 
         void Update()
@@ -255,14 +203,9 @@ namespace Zhuzhius
             }
         }
 
-        public static readonly KeyCode openKey = KeyCode.RightShift;
-        public static Rect windowRect = new Rect(35, 35, 220, 500);
-        public static Rect buttonRect = new Rect((windowRect.width / 2) - 95, 30, 190, 40);
-        public static readonly int maxButtonsOnPage = 8;
-
         public static Rect GetButtonRectById(int id)
         {
-            Rect shit = buttonRect;
+            Rect shit = ZhuzhiusVariables.buttonRect;
             shit.y += 45*id;
             return shit;
         }
@@ -282,12 +225,12 @@ namespace Zhuzhius
 
         void OnGUI()
         {
-            if (UnityInput.Current.GetKey(openKey) && previousBracket == false)
+            if (UnityInput.Current.GetKey(ZhuzhiusVariables.openKey) && previousBracket == false)
             {
-                ShowHide = !ShowHide;
+                ZhuzhiusVariables.ShowHide = !ZhuzhiusVariables.ShowHide;
                 previousBracket = true;
             }
-            if (!UnityInput.Current.GetKey(openKey))
+            if (!UnityInput.Current.GetKey(ZhuzhiusVariables.openKey))
             {
                 previousBracket = false;
             }
@@ -302,33 +245,30 @@ namespace Zhuzhius
             }
 
 
-            if (Plugin.adminBuild) allowedToUse = Reason.allowed;
+            if (ZhuzhiusBuildInfo.adminBuild) allowedToUse = Reason.allowed;
 
-            if (ShowHide)
+            if (ZhuzhiusVariables.ShowHide)
             {
-                if (allowedToUse == Reason.allowed)
+                switch (allowedToUse)
                 {
-                    windowRect = GUI.Window(0, windowRect, DoMyWindow, "Zhuzhius's <b>Stupid</b> Menu");
-                } 
-                else if (allowedToUse == Reason.lobby)
-                {
-                    windowRect = GUI.Window(0, windowRect, DoMyWindow, "Use only in private rooms!");
-                }
-                else if (allowedToUse == Reason.killswitch) 
-                {
-                    windowRect = GUI.Window(0, windowRect, DoMyWindow, "MENU IS ON LOCKDOWN!");
-                } 
-                else if (allowedToUse == Reason.banned)
-                {
-                    windowRect = GUI.Window(0, windowRect, DoMyWindow, "YOU ARE BANNED FROM MENU!");
-                }
-                else if (allowedToUse == Reason.update)
-                {
-                    windowRect = GUI.Window(0, windowRect, DoMyWindow, "New update available! Please, update!");
-                }
-                else if (allowedToUse == Reason.error)
-                {
-                    windowRect = GUI.Window(0, windowRect, DoMyWindow, "There are some error, try to restart your game");
+                    case Reason.allowed:
+                        ZhuzhiusVariables.windowRect = GUI.Window(0, ZhuzhiusVariables.windowRect, DoMyWindow, "Zhuzhius's <b>Stupid</b> Menu");
+                        break;
+                    case Reason.lobby:
+                        ZhuzhiusVariables.windowRect = GUI.Window(0, ZhuzhiusVariables.windowRect, DoMyWindow, "Use only in private rooms!");
+                        break;
+                    case Reason.killswitch:
+                        ZhuzhiusVariables.windowRect = GUI.Window(0, ZhuzhiusVariables.windowRect, DoMyWindow, "MENU IS ON LOCKDOWN!");
+                        break;
+                    case Reason.banned:
+                        ZhuzhiusVariables.windowRect = GUI.Window(0, ZhuzhiusVariables.windowRect, DoMyWindow, "YOU ARE BANNED FROM MENU!");
+                        break;
+                    case Reason.update:
+                        ZhuzhiusVariables.windowRect = GUI.Window(0, ZhuzhiusVariables.windowRect, DoMyWindow, "New update available! Please, update!");
+                        break;
+                    case Reason.error:
+                        ZhuzhiusVariables.windowRect = GUI.Window(0, ZhuzhiusVariables.windowRect, DoMyWindow, "There are some error, try to restart your game");
+                        break;
                 }
             }
         }
@@ -344,22 +284,17 @@ namespace Zhuzhius
                 Buttons.Buttons.page++;
             }
 
-            //Buttons.Buttons.category = 2;
-            //Buttons.Buttons.page = 1;
-
             int buttonsAdded = 0;
             int shitId = 0;
             int buttonId = 2;
-            //Debug.Log(((Buttons.Buttons.page) * 9) + maxButtonsOnPage);
             foreach (var buttonInfo in Buttons.Buttons.GetButtonsInCategory(Buttons.Buttons.category))
             {
-                if (shitId < (Buttons.Buttons.page * maxButtonsOnPage) + maxButtonsOnPage)
+                if (shitId < (Buttons.Buttons.page * ZhuzhiusVariables.maxButtonsOnPage) + ZhuzhiusVariables.maxButtonsOnPage)
                 {
-                    if (shitId >= Buttons.Buttons.page * maxButtonsOnPage)
+                    if (shitId >= Buttons.Buttons.page * ZhuzhiusVariables.maxButtonsOnPage)
                     {
                         bool btn = false;
                         int size = 16;
-                        //if (buttonInfo.Key.Name.Length >= 12) size = 15;
                         if (buttonInfo.Key.Name.Length >= 24) size = 13;
 
                         if (allowedToUse == Reason.allowed)
@@ -396,11 +331,8 @@ namespace Zhuzhius
                         }
                         buttonsAdded++;
                         buttonId++;
-                        //Debug.Log("added");
-                        
                     }
                 }
-                //Debug.Log(buttonId);
                 shitId++;
             }
 
