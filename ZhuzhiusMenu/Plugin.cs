@@ -21,17 +21,21 @@ namespace Zhuzhius
     public struct ZhuzhiusBuildInfo
     {
         public const bool adminBuild = false;
-        public const string version = "1.0.0";
+        public const string version = "1.1.0";
     }
 
     public class ZhuzhiusMain
     {
         public static void Inject()
         {
+            Debug.Log("hiiiii");
             Harmony.CreateAndPatchAll(typeof(ZhuzhiusPatches));
+            Debug.Log("Patched yey");
 
+            Debug.Log("Oh yeeeeeee");
             GameObject _menu = new GameObject();
             _menu.AddComponent<ZhuzhiusMenu>();
+            Debug.Log("Added componenttttt");
         }
     }
 
@@ -153,11 +157,18 @@ namespace Zhuzhius
 
         private void Awake()
         {
+            Debug.Log("Initializing menu... 0/4");
             if (ZhuzhiusVariables.instance == null)
             {
+                Debug.Log("Initializing menu... 1/4");
                 ZhuzhiusVariables.instance = this;
+                Debug.Log("Initializing menu... 2/4");
                 DontDestroyOnLoad(this);
+                gameObject.SetActive(true);
+                Debug.Log($"ZhuzhiusMenu isActive: {gameObject.activeSelf}");
+                Debug.Log("Initializing menu... 3/4");
                 ZhuzhiusControls.InitControls();
+                Debug.Log("Initializing menu... 4/4");
             }
             else
             {
@@ -194,6 +205,7 @@ namespace Zhuzhius
 
         void Update()
         {
+            Debug.Log("hi");
             foreach (var button in Buttons.Buttons.buttons)
             {
                 if (button.Value)
