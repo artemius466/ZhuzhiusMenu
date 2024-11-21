@@ -47,7 +47,7 @@ namespace Zhuzhius.Buttons
             // Overpowered
             { new Button {Name = "Exit Overpowered Mods", Category = overpoweredCategory, isToggleable = false, method =()=>Functions.OpenMain()}, false },
             { new Button {Name = "Return Host On End Game", Category = overpoweredCategory, isToggleable = true, enableMethod =()=>Functions.ReturnHostEnable(), disableMethod =()=>Functions.ReturnHostDisable()}, false },
-            { new Button {Name = "Make Host Self", Category = overpoweredCategory, isToggleable = true, method =()=>Functions.SetMasterSelf()}, false },
+            { new Button {Name = "Make Host Self", Category = overpoweredCategory, isToggleable = false, method =()=>Functions.SetMasterSelf()}, false },
 
             { new Button {Name = "Kill Player Gun [<color=green>HOST</color>]", Category = overpoweredCategory, isToggleable = true, method =()=>Functions.KillGun()}, false },
             { new Button {Name = "Kill All [<color=green>HOST</color>]", Category = overpoweredCategory, isToggleable = false, method =()=>Functions.KillAll()}, false },
@@ -70,19 +70,19 @@ namespace Zhuzhius.Buttons
 
             // Spam
             { new Button {Name = "Exit Spam Mods", Category = spamCategory, isToggleable = false, method =()=>Functions.OpenMain()}, false },
-            { new Button {Name = "Fireball Rain [<color=green>MASTER</color>]", Category = spamCategory, isToggleable = true, method =()=>Functions.RandomInstantiateFireball()}, false },
-            { new Button {Name = "Iceball Rain [<color=green>MASTER</color>]", Category = spamCategory, isToggleable = true, method =()=>Functions.RandomInstantiateIceball()}, false },
-            { new Button {Name = "Power Up Rain [<color=green>MASTER</color>]", Category = spamCategory, isToggleable = true, method =()=>Functions.RandomInstantiateShit()}, false },
-            { new Button {Name = "Enemy Rain [<color=green>MASTER</color>]", Category = spamCategory, isToggleable = true, method =()=>Functions.RandomInstantiateEnemies()}, false },
-            { new Button {Name = "Coin Rain [<color=green>MASTER</color>]", Category = spamCategory, isToggleable = true, method =()=>Functions.RandomInstantiateCoin()}, false },
+            { new Button {Name = "Fireball Rain [SS] [<color=green>MASTER</color>]", Category = spamCategory, isToggleable = true, method =()=>Functions.RandomInstantiateFireball()}, false },
+            { new Button {Name = "Iceball Rain [SS] [<color=green>MASTER</color>]", Category = spamCategory, isToggleable = true, method =()=>Functions.RandomInstantiateIceball()}, false },
+            { new Button {Name = "Power Up Rain [SS] [<color=green>MASTER</color>]", Category = spamCategory, isToggleable = true, method =()=>Functions.RandomInstantiateShit()}, false },
+            { new Button {Name = "Enemy Rain [SS] [<color=green>MASTER</color>]", Category = spamCategory, isToggleable = true, method =()=>Functions.RandomInstantiateEnemies()}, false },
+            { new Button {Name = "Coin Rain [SS] [<color=green>MASTER</color>]", Category = spamCategory, isToggleable = true, method =()=>Functions.RandomInstantiateCoin()}, false },
 
             { new Button {Name = "Exit Powerup Mods", Category = powerCategory, isToggleable = false, method =()=>Functions.OpenMain()}, false },
-            { new Button {Name = "Be BIG [<color=green>MASTER</color>]", Category = powerCategory, isToggleable = false, method =()=>Functions.SpawnPrefabInPlayer(GameManager.Instance.localPlayer, "Prefabs/Powerup/MegaMushroom")}, false },
-            { new Button {Name = "Be Mini [<color=green>MASTER</color>]", Category = powerCategory, isToggleable = false, method =()=>Functions.SpawnPrefabInPlayer(GameManager.Instance.localPlayer, "Prefabs/Powerup/MiniMushroom")}, false },
-            { new Button {Name = "Be Ice [<color=green>MASTER</color>]", Category = powerCategory, isToggleable = false, method =()=>Functions.SpawnPrefabInPlayer(GameManager.Instance.localPlayer, "Prefabs/Powerup/IceFlower")}, false },
-            { new Button {Name = "Be Fire [<color=green>MASTER</color>]", Category = powerCategory, isToggleable = false, method =()=>Functions.SpawnPrefabInPlayer(GameManager.Instance.localPlayer, "Prefabs/Powerup/FireFlower")}, false },
-            { new Button {Name = "Be Blue Shell [<color=green>MASTER</color>]", Category = powerCategory, isToggleable = false, method =()=>Functions.SpawnPrefabInPlayer(GameManager.Instance.localPlayer, "Prefabs/Powerup/BlueShell")}, false },
-            { new Button {Name = "Be Star [<color=green>MASTER</color>]", Category = powerCategory, isToggleable = false, method =()=>Functions.SpawnPrefabInPlayer(GameManager.Instance.localPlayer, "Prefabs/Powerup/Star")}, false },
+            { new Button {Name = "Be BIG [SS] [<color=green>MASTER</color>]", Category = powerCategory, isToggleable = false, method =()=>Functions.SpawnPrefabInPlayer(GameManager.Instance.localPlayer, "Prefabs/Powerup/MegaMushroom")}, false },
+            { new Button {Name = "Be Mini [SS] [<color=green>MASTER</color>]", Category = powerCategory, isToggleable = false, method =()=>Functions.SpawnPrefabInPlayer(GameManager.Instance.localPlayer, "Prefabs/Powerup/MiniMushroom")}, false },
+            { new Button {Name = "Be Ice [SS] [<color=green>MASTER</color>]", Category = powerCategory, isToggleable = false, method =()=>Functions.SpawnPrefabInPlayer(GameManager.Instance.localPlayer, "Prefabs/Powerup/IceFlower")}, false },
+            { new Button {Name = "Be Fire [SS] [<color=green>MASTER</color>]", Category = powerCategory, isToggleable = false, method =()=>Functions.SpawnPrefabInPlayer(GameManager.Instance.localPlayer, "Prefabs/Powerup/FireFlower")}, false },
+            { new Button {Name = "Be Blue [SS] Shell [<color=green>MASTER</color>]", Category = powerCategory, isToggleable = false, method =()=>Functions.SpawnPrefabInPlayer(GameManager.Instance.localPlayer, "Prefabs/Powerup/BlueShell")}, false },
+            { new Button {Name = "Be Star [SS] [<color=green>MASTER</color>]", Category = powerCategory, isToggleable = false, method =()=>Functions.SpawnPrefabInPlayer(GameManager.Instance.localPlayer, "Prefabs/Powerup/Star")}, false },
 
             { new Button {Name = "Freeze all [<color=green>MASTER</color>]", Category = powerCategory, isToggleable = false, method =()=>Functions.FreezeAll()}, false },
 
@@ -105,6 +105,16 @@ namespace Zhuzhius.Buttons
             }
 
             return output;
+        }
+
+        public static KeyValuePair<Button, bool> GetButtonByname(string name)
+        {
+            foreach (var button in buttons)
+            {
+                if (button.Key.Name == name) return button;
+            }
+
+            return new KeyValuePair<Button, bool>();
         }
     }
 }

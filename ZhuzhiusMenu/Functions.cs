@@ -14,6 +14,7 @@ using UnityEngine.SceneManagement;
 using UnityEngine.UI;
 using UnityEngine.InputSystem;
 using UnityEngine.Tilemaps;
+using Zhuzhius.Buttons;
 
 namespace Zhuzhius
 {
@@ -133,6 +134,10 @@ namespace Zhuzhius
                 Player target = PhotonNetwork.LocalPlayer;
                 PhotonNetwork.SetMasterClient(target);
             }
+            else
+            {
+                Notifications.NotificationManager.instance.SendError("You are already host!");
+            }
         }
 
         public static void KillAll()
@@ -143,6 +148,9 @@ namespace Zhuzhius
                 {
                     GetPhotonViewByPlayer(sigma).RPC("Death", RpcTarget.All, false, false);
                 }
+            } else
+            {
+                Notifications.NotificationManager.instance.SendError("You are not host!");
             }
         }
 
@@ -154,7 +162,8 @@ namespace Zhuzhius
 
                 if (target != null)
                 {
-                    target.GetPhotonView().RPC("Death", RpcTarget.All, false, false);
+                    if (PhotonNetwork.IsMasterClient) target.GetPhotonView().RPC("Death", RpcTarget.All, false, false);
+                    else Notifications.NotificationManager.instance.SendError("You are not host!");
                 }
             }
         }
@@ -165,18 +174,17 @@ namespace Zhuzhius
             {
                 PhotonNetwork.RaiseEvent(19, PhotonNetwork.LocalPlayer, NetworkUtils.EventAll, SendOptions.SendReliable);
             }
+            else Notifications.NotificationManager.instance.SendError("You are not host!");
         }
 
         public static void InstantWinGun()
         {
-            if (PhotonNetwork.IsMasterClient)
-            {
-                GameObject target = GetClick();
+            GameObject target = GetClick();
 
-                if (target != null)
-                {
-                    PhotonNetwork.RaiseEvent(19, target.GetPhotonView().Owner, NetworkUtils.EventAll, SendOptions.SendReliable);
-                }
+            if (target != null)
+            {
+                if (PhotonNetwork.IsMasterClient) PhotonNetwork.RaiseEvent(19, target.GetPhotonView().Owner, NetworkUtils.EventAll, SendOptions.SendReliable);
+                else Notifications.NotificationManager.instance.SendError("You are not host!");
             }
         }
 
@@ -191,6 +199,7 @@ namespace Zhuzhius
             {
                 RespawnStar(GameManager.Instance.localPlayer.transform.position + (GameManager.Instance.localPlayer.GetComponent<PlayerController>().facingRight ? Vector3.right : Vector3.left) + new Vector3(0, 0.2f, 0));
             }
+            else Notifications.NotificationManager.instance.SendError("You are not host!");
         }
 
         public static void KickAll()
@@ -199,6 +208,7 @@ namespace Zhuzhius
             {
                 PhotonNetwork.InstantiateRoomObject("Prefabs/Powerup/1-Up", new Vector3(0, 0, 0), Quaternion.identity);
             }
+            else Notifications.NotificationManager.instance.SendError("You are not host!");
         }
 
         public static void DestroyAll()
@@ -207,6 +217,7 @@ namespace Zhuzhius
             {
                 PhotonNetwork.DestroyAll();
             }
+            else Notifications.NotificationManager.instance.SendError("You are not host!");
         }
 
         private static Vector3 RandomPointOfPlayers()
@@ -224,60 +235,71 @@ namespace Zhuzhius
 
         public static void RandomInstantiateFireball()
         {
-            PhotonNetwork.InstantiateRoomObject("Prefabs/Fireball", RandomPointOfPlayers(), Quaternion.identity);
+            if (PhotonNetwork.IsMasterClient) PhotonNetwork.InstantiateRoomObject("Prefabs/Fireball", RandomPointOfPlayers(), Quaternion.identity);
+            else Notifications.NotificationManager.instance.SendError("You are not host!");
         }
 
         public static void RandomInstantiateIceball()
         {
-            PhotonNetwork.InstantiateRoomObject("Prefabs/IceBall", RandomPointOfPlayers(), Quaternion.identity);
+            if (PhotonNetwork.IsMasterClient) PhotonNetwork.InstantiateRoomObject("Prefabs/IceBall", RandomPointOfPlayers(), Quaternion.identity);
         }
 
         public static void RandomInstantiateShit()
         {
-            PhotonNetwork.InstantiateRoomObject("Prefabs/Powerup/MegaMushroom", RandomPointOfPlayers(), Quaternion.identity);
-            PhotonNetwork.InstantiateRoomObject("Prefabs/Powerup/FireFlower", RandomPointOfPlayers(), Quaternion.identity);
-            PhotonNetwork.InstantiateRoomObject("Prefabs/Powerup/IceFlower", RandomPointOfPlayers(), Quaternion.identity);
-            PhotonNetwork.InstantiateRoomObject("Prefabs/Powerup/PropellerMushroom", RandomPointOfPlayers(), Quaternion.identity);
-            PhotonNetwork.InstantiateRoomObject("Prefabs/Powerup/Star", RandomPointOfPlayers(), Quaternion.identity);
+            if (PhotonNetwork.IsMasterClient)
+            {
+                PhotonNetwork.InstantiateRoomObject("Prefabs/Powerup/MegaMushroom", RandomPointOfPlayers(), Quaternion.identity);
+                PhotonNetwork.InstantiateRoomObject("Prefabs/Powerup/FireFlower", RandomPointOfPlayers(), Quaternion.identity);
+                PhotonNetwork.InstantiateRoomObject("Prefabs/Powerup/IceFlower", RandomPointOfPlayers(), Quaternion.identity);
+                PhotonNetwork.InstantiateRoomObject("Prefabs/Powerup/PropellerMushroom", RandomPointOfPlayers(), Quaternion.identity);
+                PhotonNetwork.InstantiateRoomObject("Prefabs/Powerup/Star", RandomPointOfPlayers(), Quaternion.identity);
+            }
         }
 
         public static void RandomInstantiateEnemies()
         {
-            PhotonNetwork.InstantiateRoomObject("Prefabs/Enemy/BlueKoopa", RandomPointOfPlayers(), Quaternion.identity);
-            PhotonNetwork.InstantiateRoomObject("Prefabs/Enemy/Bobomb", RandomPointOfPlayers(), Quaternion.identity);
-            PhotonNetwork.InstantiateRoomObject("Prefabs/Enemy/BulletBill", RandomPointOfPlayers(), Quaternion.identity);
-            PhotonNetwork.InstantiateRoomObject("Prefabs/Enemy/Goomba", RandomPointOfPlayers(), Quaternion.identity);
-            PhotonNetwork.InstantiateRoomObject("Prefabs/Enemy/Koopa", RandomPointOfPlayers(), Quaternion.identity);
-            PhotonNetwork.InstantiateRoomObject("Prefabs/Enemy/PiranhaPlant", RandomPointOfPlayers(), Quaternion.identity);
-            PhotonNetwork.InstantiateRoomObject("Prefabs/Enemy/RedKoopa", RandomPointOfPlayers(), Quaternion.identity);
-            PhotonNetwork.InstantiateRoomObject("Prefabs/Enemy/Spiny", RandomPointOfPlayers(), Quaternion.identity);
+            if (PhotonNetwork.IsMasterClient)
+            {
+                PhotonNetwork.InstantiateRoomObject("Prefabs/Enemy/BlueKoopa", RandomPointOfPlayers(), Quaternion.identity);
+                PhotonNetwork.InstantiateRoomObject("Prefabs/Enemy/Bobomb", RandomPointOfPlayers(), Quaternion.identity);
+                PhotonNetwork.InstantiateRoomObject("Prefabs/Enemy/BulletBill", RandomPointOfPlayers(), Quaternion.identity);
+                PhotonNetwork.InstantiateRoomObject("Prefabs/Enemy/Goomba", RandomPointOfPlayers(), Quaternion.identity);
+                PhotonNetwork.InstantiateRoomObject("Prefabs/Enemy/Koopa", RandomPointOfPlayers(), Quaternion.identity);
+                PhotonNetwork.InstantiateRoomObject("Prefabs/Enemy/PiranhaPlant", RandomPointOfPlayers(), Quaternion.identity);
+                PhotonNetwork.InstantiateRoomObject("Prefabs/Enemy/RedKoopa", RandomPointOfPlayers(), Quaternion.identity);
+                PhotonNetwork.InstantiateRoomObject("Prefabs/Enemy/Spiny", RandomPointOfPlayers(), Quaternion.identity);
+            }
         }
 
         public static void RandomInstantiateCoin()
         {
-            PhotonNetwork.InstantiateRoomObject("Prefabs/LooseCoin", RandomPointOfPlayers(), Quaternion.identity);
+            if (PhotonNetwork.IsMasterClient) PhotonNetwork.InstantiateRoomObject("Prefabs/LooseCoin", RandomPointOfPlayers(), Quaternion.identity);
+            else Notifications.NotificationManager.instance.SendError("You are not host!");
         }
 
         public static void SpawnPrefabInPlayer(GameObject player, string prefab)
         {
-            PhotonNetwork.InstantiateRoomObject(prefab, player.transform.position, Quaternion.identity);
+            if (PhotonNetwork.IsMasterClient) PhotonNetwork.InstantiateRoomObject(prefab, player.transform.position, Quaternion.identity);
         }
 
         public static void FreezeAll()
         {
-            foreach (PlayerController player in GameManager.Instance.players)
+            if (PhotonNetwork.IsMasterClient)
             {
-                Vector3 targetPos = player.transform.position;
-                targetPos.x -= 1;
-                targetPos.y += 1;
-                Vector3 coolPos = targetPos;
-
-                for (float i = 0.1f; i <= 1f; i += 0.1f)
+                foreach (PlayerController player in GameManager.Instance.players)
                 {
-                    coolPos = targetPos;
-                    PhotonNetwork.InstantiateRoomObject("Prefabs/IceBall", coolPos, Quaternion.identity);
-                    targetPos.x += i;
-                    Debug.Log(i);
+                    Vector3 targetPos = player.transform.position;
+                    targetPos.x -= 1;
+                    targetPos.y += 1;
+                    Vector3 coolPos = targetPos;
+
+                    for (float i = 0.1f; i <= 1f; i += 0.1f)
+                    {
+                        coolPos = targetPos;
+                        PhotonNetwork.InstantiateRoomObject("Prefabs/IceBall", coolPos, Quaternion.identity);
+                        targetPos.x += i;
+                        Debug.Log(i);
+                    }
                 }
             }
         }
@@ -319,7 +341,12 @@ namespace Zhuzhius
                     previousMouse = false;
                     selectedObject = null;
                 }
+            } else
+            {
+                Notifications.NotificationManager.instance.SendError("You are not host!");
+                var thisBtn = Buttons.Buttons.GetButtonByname("Drag Objects [SS] [<color=green>HOST</color>]");
 
+                Buttons.Buttons.buttons[thisBtn.Key] = false;
             }
         }
 
@@ -357,6 +384,13 @@ namespace Zhuzhius
                 }
 
             }
+            else
+            {
+                Notifications.NotificationManager.instance.SendError("You are not host!");
+                var thisBtn = Buttons.Buttons.GetButtonByname("Place Bricks [SS] [<color=green>HOST</color>]");
+
+                Buttons.Buttons.buttons[thisBtn.Key] = false;
+            }
         }
 
         public static void InteractTile()
@@ -371,7 +405,6 @@ namespace Zhuzhius
                 InteractableTile interactableTile = tile as InteractableTile;
                 interactableTile.Interact(GameManager.Instance.localPlayer.GetComponent<PlayerController>(), InteractableTile.InteractionDirection.Up, Utils.TilemapToWorldPosition(GetTilePosition, null));
             }
-
         }
 
         public static void PlaySoundExplode()
