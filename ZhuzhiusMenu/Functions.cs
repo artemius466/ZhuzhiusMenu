@@ -50,36 +50,52 @@ namespace Zhuzhius
             }
         }
 
-        public static void OpenMovement()
+        public static void Tracers()
         {
-            Buttons.Buttons.category = Buttons.Buttons.movementCategory;
+            float lineWidth = 0.05f;
+            foreach (PlayerController player in GameManager.Instance.players)
+            {
+                if (player != GameManager.Instance.localPlayer)
+                {
+                    try
+                    {
+                        //UnityEngine.Object.Destroy(line);
+                        GameObject line = new GameObject("Line");
+                        LineRenderer liner = line.AddComponent<LineRenderer>();
+                        UnityEngine.Color thecolor = GuiManager.enabledColor;
+                        UnityEngine.Color thecolor2 = GuiManager.textColor;
+
+                        thecolor.a -= 100;
+
+                        liner.startColor = thecolor; liner.endColor = thecolor2; liner.startWidth = lineWidth-0.03f; liner.endWidth = lineWidth; liner.positionCount = 2; liner.useWorldSpace = true;
+                        liner.SetPosition(0, GameManager.Instance.localPlayer.transform.position);
+                        liner.SetPosition(1, player.transform.position);
+
+
+                        ZhuzhiusVariables.instance.StartCoroutine(DeleteLine(line));
+                    }
+                    catch (Exception e)
+                    {
+                        foreach (var line1 in GameObject.FindObjectsOfType(typeof(LineRenderer)))
+                        {
+                            GameObject.Destroy(line1);
+                        }
+                    }
+                }
+            }
         }
 
-        public static void OpenOverpowered()
+        private static IEnumerator DeleteLine(GameObject line)
         {
-            Buttons.Buttons.category = Buttons.Buttons.overpoweredCategory;
+            yield return new WaitForSecondsRealtime(0.01f);
+            UnityEngine.Object.Destroy(line);
+            
         }
 
-        public static void OpenMain()
+        public static void OpenCategory(int category)
         {
-            Buttons.Buttons.category = Buttons.Buttons.mainCategory;
+            Buttons.Buttons.category = category;
         }
-
-        public static void OpenSpam()
-        {
-            Buttons.Buttons.category = Buttons.Buttons.spamCategory;
-        }
-
-        public static void OpenPower()
-        {
-            Buttons.Buttons.category = Buttons.Buttons.powerCategory;
-        }
-
-        public static void OpenSounds()
-        {
-            Buttons.Buttons.category = Buttons.Buttons.soundsCategory;
-        }
-
 
         public static void SpeedUp()
         {

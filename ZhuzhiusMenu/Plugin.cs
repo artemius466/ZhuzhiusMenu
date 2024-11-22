@@ -373,21 +373,55 @@ namespace Zhuzhius
                         string formattedText = buttonInfo.Key.Name.Replace("<color=green>", "").Replace("</color>", "");
                         //Debug.Log($"{formattedText} : {formattedText.Length}");
                         bool btn = false;
+
                         int size = 16;
                         if (buttonInfo.Key.Name.Length >= 20) size = 15;
+
+
                         if (allowedToUse == Reason.allowed)
                         {
-                            if (!buttonInfo.Value)
+                            if (buttonInfo.Key.type == Buttons.Buttons.buttonType.button)
                             {
-                                GUI.contentColor = GuiManager.textColor;
-                                GUI.backgroundColor = GuiManager.currentColor;
-                                btn = GUI.Button(GetButtonRectById(buttonId), $"<size={size}>{buttonInfo.Key.Name}</size>", GUI.skin.button);
-                            }
-                            else
+                                Rect rect = GetButtonRectById(buttonId);
+
+                                if (!buttonInfo.Value)
+                                {
+                                    GUI.contentColor = GuiManager.textColor;
+                                    GUI.backgroundColor = GuiManager.currentColor;
+                                    btn = GUI.Button(rect, $"<size={size}>{buttonInfo.Key.Name}</size>", GUI.skin.button);
+                                }
+                                else
+                                {
+                                    GUI.contentColor = GuiManager.textColor;
+                                    GUI.backgroundColor = GuiManager.enabledColor;
+                                    btn = GUI.Button(rect, $"<size={size}>{buttonInfo.Key.Name}</size>", GUI.skin.button);
+                                }
+                            } else if (buttonInfo.Key.type == Buttons.Buttons.buttonType.buttonAndText)
                             {
-                                GUI.contentColor = GuiManager.textColor;
-                                GUI.backgroundColor = GuiManager.enabledColor;
-                                btn = GUI.Button(GetButtonRectById(buttonId), $"<size={size}>{buttonInfo.Key.Name}</size>", GUI.skin.button);
+                                Rect txtRect = GetButtonRectById(buttonId);
+
+                                txtRect.width /= 2;
+
+                                Rect rect = txtRect;
+
+                                txtRect.width -= 10;
+
+                                buttonInfo.Key.btnText = GUI.TextField(txtRect, buttonInfo.Key.btnText, 7);
+
+                                rect.x += txtRect.width+10;
+
+                                if (!buttonInfo.Value)
+                                {
+                                    GUI.contentColor = GuiManager.textColor;
+                                    GUI.backgroundColor = GuiManager.currentColor;
+                                    btn = GUI.Button(rect, $"<size={size}>{buttonInfo.Key.Name}</size>", GUI.skin.button);
+                                }
+                                else
+                                {
+                                    GUI.contentColor = GuiManager.textColor;
+                                    GUI.backgroundColor = GuiManager.enabledColor;
+                                    btn = GUI.Button(rect, $"<size={size}>{buttonInfo.Key.Name}</size>", GUI.skin.button);
+                                }
                             }
                         } else
                         {
@@ -397,23 +431,29 @@ namespace Zhuzhius
                         }
 
 
-                        if (btn && allowedToUse == Reason.allowed)
+                        if (btn)
                         {
-                            if (buttonInfo.Key.isToggleable)
+                            if (allowedToUse == Reason.allowed)
                             {
-                                Buttons.Buttons.buttons[buttonInfo.Key] = !buttonInfo.Value;
-                                if (buttonInfo.Value)
+                                if (buttonInfo.Key.isToggleable)
                                 {
-                                    Notifications.NotificationManager.instance.SendNotification($"[<color=red>OFF</color>] {buttonInfo.Key.Name}");
-                                    if (buttonInfo.Key.enableMethod != null) buttonInfo.Key.disableMethod.Invoke();
+                                    Buttons.Buttons.buttons[buttonInfo.Key] = !buttonInfo.Value;
+                                    if (buttonInfo.Value)
+                                    {
+                                        Notifications.NotificationManager.instance.SendNotification($"[<color=red>OFF</color>] {buttonInfo.Key.Name}");
+                                        if (buttonInfo.Key.enableMethod != null) buttonInfo.Key.disableMethod.Invoke();
+                                    }
+                                    else
+                                    {
+                                        Notifications.NotificationManager.instance.SendNotification($"[<color=green>ON</color>] {buttonInfo.Key.Name}");
+                                        if (buttonInfo.Key.disableMethod != null) buttonInfo.Key.enableMethod.Invoke();
+                                    }
                                 }
-                                else
-                                {
-                                    Notifications.NotificationManager.instance.SendNotification($"[<color=green>ON</color>] {buttonInfo.Key.Name}");
-                                    if (buttonInfo.Key.disableMethod != null) buttonInfo.Key.enableMethod.Invoke();
-                                }
+                                else { Notifications.NotificationManager.instance.SendNotification($"[<color=green>ON</color>] {buttonInfo.Key.Name}"); if (buttonInfo.Key.method != null) buttonInfo.Key.method.Invoke(); }
+                            } else
+                            {
+                                Notifications.NotificationManager.instance.SendNotification($"You are not allowed to use menu for some reason... Check window title.");
                             }
-                            else { Notifications.NotificationManager.instance.SendNotification($"[<color=green>ON</color>] {buttonInfo.Key.Name}"); if (buttonInfo.Key.method != null) buttonInfo.Key.method.Invoke(); }
                         }
                         buttonsAdded++;
                         buttonId++;

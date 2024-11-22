@@ -62,9 +62,6 @@ namespace Zhuzhius
                     normal = { textColor = Color.white }
                 };
             }
-            
-
-            Debug.Log($"Используемый шрифт: {textStyle.font.name}");
         }
 
         private Font GetFontFromGame(string fontName)
