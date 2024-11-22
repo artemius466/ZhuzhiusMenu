@@ -20,7 +20,7 @@ namespace Zhuzhius
     public struct ZhuzhiusBuildInfo
     {
         public static bool adminBuild = false;
-        public const string version = "1.2.0";
+        public const string version = "1.2.1";
     }
 
     public class ZhuzhiusMain
@@ -37,7 +37,7 @@ namespace Zhuzhius
 
         public static void Inject()
         {
-            Harmony.CreateAndPatchAll(typeof(ZhuzhiusPatches));
+            Harmony.CreateAndPatchAll(typeof(EndGamePatch));
 
             GameObject _menu = new GameObject();
             _menu.AddComponent<ZhuzhiusMenu>();
@@ -46,11 +46,11 @@ namespace Zhuzhius
         }
     }
 
-    public class AdminPatches
+    [HarmonyPatch(typeof(AuthenticationHandler), "Authenticate")]
+    public class AntibanPatch
     {
         private const string URL = "https://mariovsluigi.azurewebsites.net/auth/init";
 
-        [HarmonyPatch(typeof(AuthenticationHandler), "Authenticate")]
         [HarmonyPrefix]
         static bool PrefixAuthenticate(string userid, string token, string region)
         {
@@ -93,9 +93,9 @@ namespace Zhuzhius
         }
     }
 
-    public class ZhuzhiusPatches
+    [HarmonyPatch(typeof(GameManager), "EndGame")]
+    public class EndGamePatch
     {
-        [HarmonyPatch(typeof(GameManager), "EndGame")]
         [HarmonyPrefix]
         static void PrefixEndgame()
         {
@@ -109,17 +109,6 @@ namespace Zhuzhius
                 }
             }
         }
-
-        //[HarmonyPatch(typeof(GameManager), "OnJoinedRoom")]
-        //[HarmonyPrefix]
-        //static void PrefixEnteredRoom()
-        //{
-        //    Console.WriteLine("asda");
-        //    MainMenuManager.Instance.Kick(ZhuzhiusVariables.OldMaster);
-        //    //return;
-        //}
-
-        
     }
 
     public class ZhuzhiusVariables
@@ -264,7 +253,7 @@ namespace Zhuzhius
                     if (admin == hwid)
                     {
                         Notifications.NotificationManager.instance.SendNotification("You are now admin!");
-                        Harmony.CreateAndPatchAll(typeof(AdminPatches));
+                        Harmony.CreateAndPatchAll(typeof(AntibanPatch));
                         ZhuzhiusBuildInfo.adminBuild = true;
                         break;
                     }
