@@ -136,6 +136,36 @@ namespace Zhuzhius.Notifications
             StartCoroutine(DeleteNotificationAfter(5f, notif));
         }
 
+        public void SendNotification(string text, float time)
+        {
+            Notification notif = new Notification(text);
+            notif.notificationType = NotificationType.message;
+
+            notificationList.Add(notif);
+
+            StartCoroutine(DeleteNotificationAfter(time, notif));
+        }
+
+        public void SendError(string text, float time)
+        {
+            Notification notif = new Notification(text);
+            notif.notificationType = NotificationType.error;
+
+            notificationList.Add(notif);
+
+            StartCoroutine(DeleteNotificationAfter(time, notif));
+        }
+
+        public void ClearNotifications()
+        {
+            foreach (Notification notification in notificationList)
+            {
+                notification.transitionProgress = 0f;
+                notification.spawned = true;
+                notification.despawning = true;
+            }
+        }
+
         private Texture2D CreateSolidColorTexture(Color32 color)
         {
             Texture2D texture = new Texture2D(1, 1);
@@ -150,21 +180,27 @@ namespace Zhuzhius.Notifications
             int i = 0;
             foreach (Notification notif in notificationList)
             {
+                string formattedText = notif.text.Replace("<color=green>", "").Replace("</color>", "").Replace("<color=red>", "");
+
+                //Debug.Log($"{formattedText} : {formattedText.Length}");
+
+                int sizex = 13 * formattedText.Length;
+
                 Color32 textColor = GuiManager.textColor;
 
                 textColor.a -= notif.colorOffset.a;
 
                 if (notif.notificationType == NotificationType.message) GUI.color = textColor;
                 else GUI.color = new Color32(200, 0, 0, textColor.a);
-                GUI.Box(new Rect(10 + (notif.offset.x), Screen.height - 90 - (75 * i), 8, 70), "", customStyle);
+                GUI.Box(new Rect(10 + (notif.offset.x), Screen.height - 90 - (75 * i), 8, 60), "", customStyle);
 
                 GUI.color = new Color32(30, 30, 30, textColor.a);
-                GUI.Box(new Rect(18 + (notif.offset.x), Screen.height - 90 - (75 * i), 280, 70), "", customStyle);
+                GUI.Box(new Rect(18 + (notif.offset.x), Screen.height - 90 - (75 * i), sizex, 60), "", customStyle);
 
                 GUI.color = new Color32(255, 255, 255, textColor.a);
-                if (notif.notificationType == NotificationType.message) GUI.Label(new Rect(25 + (notif.offset.x), Screen.height - 90 - (75 * i), 300, 300), "<b><size=25>Notification</size></b>");
-                else GUI.Label(new Rect(25 + (notif.offset.x), Screen.height - 90 - (75 * i), 300, 300), "<b><size=25>Error</size></b>");
-                GUI.Label(new Rect(25 + (notif.offset.x), Screen.height - 60 - (75 * i), 300, 300), $"<b><size=17>{notif.text}</size></b>");
+                if (notif.notificationType == NotificationType.message) GUI.Label(new Rect(25 + (notif.offset.x), Screen.height - 85 - (75 * i), 300, 300), "Notification", GuiManager.bigTextStyle);
+                else GUI.Label(new Rect(25 + (notif.offset.x), Screen.height - 85 - (75 * i), 300, 300), "Error", GuiManager.bigTextStyle);
+                GUI.Label(new Rect(25 + (notif.offset.x), Screen.height - 60 - (75 * i), 3200, 3200), $"{notif.text}", GuiManager.textStyle);
 
                 //GUI.Label(new Rect(10+(notif.offset.x), Screen.height - 30 - (23 * i), 10000, 10000), $"<size=20><b>{notif.text}</b></size>");
                 i++;

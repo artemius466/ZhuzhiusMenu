@@ -133,10 +133,12 @@ namespace Zhuzhius
                 ZhuzhiusVariables.SetOldMaster = true;
                 Player target = PhotonNetwork.LocalPlayer;
                 PhotonNetwork.SetMasterClient(target);
+
+                Notifications.NotificationManager.instance.SendNotification("You are now host!");
             }
             else
             {
-                Notifications.NotificationManager.instance.SendError("You are already host!");
+                //Notifications.NotificationManager.instance.SendError("You are already host!");
             }
         }
 

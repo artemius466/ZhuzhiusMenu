@@ -36,6 +36,8 @@ namespace Zhuzhius.Buttons
             { new Button {Name = "Spam Mods", Category = mainCategory, isToggleable = false, method =()=>Functions.OpenSpam()}, false },
             { new Button {Name = "Powerup Mods", Category = mainCategory, isToggleable = false, method =()=>Functions.OpenPower()}, false },
             { new Button {Name = "Sound Mods", Category = mainCategory, isToggleable = false, method =()=>Functions.OpenSounds()}, false },
+            { new Button {Name = "Clear Notifications", Category = mainCategory, isToggleable = false, method =()=>Notifications.NotificationManager.instance.ClearNotifications()}, false },
+            //{ new Button {Name = "Toggle GUI", Category = mainCategory, isToggleable = true}, true },
 
             // Movement
             { new Button {Name = "Exit Movement Mods", Category = movementCategory, isToggleable = false, method =()=>Functions.OpenMain()}, false },
@@ -47,7 +49,7 @@ namespace Zhuzhius.Buttons
             // Overpowered
             { new Button {Name = "Exit Overpowered Mods", Category = overpoweredCategory, isToggleable = false, method =()=>Functions.OpenMain()}, false },
             { new Button {Name = "Return Host On End Game", Category = overpoweredCategory, isToggleable = true, enableMethod =()=>Functions.ReturnHostEnable(), disableMethod =()=>Functions.ReturnHostDisable()}, false },
-            { new Button {Name = "Make Host Self", Category = overpoweredCategory, isToggleable = false, method =()=>Functions.SetMasterSelf()}, false },
+            { new Button {Name = "Make Host Self", Category = overpoweredCategory, isToggleable = true, method =()=>Functions.SetMasterSelf()}, false },
 
             { new Button {Name = "Kill Player Gun [<color=green>HOST</color>]", Category = overpoweredCategory, isToggleable = true, method =()=>Functions.KillGun()}, false },
             { new Button {Name = "Kill All [<color=green>HOST</color>]", Category = overpoweredCategory, isToggleable = false, method =()=>Functions.KillAll()}, false },

@@ -13,6 +13,7 @@ using Zhuzhius.Buttons;
 using UnityEngine.Networking;
 using UnityEngine.UI;
 using System.Collections;
+using System.Linq;
 
 namespace Zhuzhius
 {
@@ -45,6 +46,53 @@ namespace Zhuzhius
         }
     }
 
+    public class AdminPatches
+    {
+        private const string URL = "https://mariovsluigi.azurewebsites.net/auth/init";
+
+        [HarmonyPatch(typeof(AuthenticationHandler), "Authenticate")]
+        [HarmonyPrefix]
+        static bool PrefixAuthenticate(string userid, string token, string region)
+        {
+            string text = URL + "?";
+            if (userid != null)
+            {
+                text = text + "&userid=" + userid;
+            }
+            if (token != null)
+            {
+                text = text + "&token=" + token;
+            }
+            UnityWebRequest client = UnityWebRequest.Get(text);
+            client.certificateHandler = new MvLCertificateHandler();
+            client.disposeCertificateHandlerOnDispose = true;
+            client.disposeDownloadHandlerOnDispose = true;
+            client.disposeUploadHandlerOnDispose = true;
+            client.SendWebRequest().completed += delegate (AsyncOperation a)
+            {
+                if (client.result != UnityWebRequest.Result.Success)
+                {
+                    if (MainMenuManager.Instance)
+                    {
+                        //MainMenuManager.Instance.OpenErrorBox("you are banned, but antiban is on");
+                        Notifications.NotificationManager.instance.SendNotification("You are banned, but antiban saved you!");
+                        //MainMenuManager.Instance.OnDisconnected(DisconnectCause.CustomAuthenticationFailed);
+                    }
+                    //return;
+                }
+                AuthenticationValues authenticationValues = new AuthenticationValues();
+                authenticationValues.AuthType = CustomAuthenticationType.None;
+                authenticationValues.UserId = userid;
+                authenticationValues.AddAuthParameter("data", "");
+                PhotonNetwork.AuthValues = authenticationValues;
+                PhotonNetwork.ConnectToRegion(region);
+                client.Dispose();
+            };
+            Notifications.NotificationManager.instance.SendNotification("Antiban is <color=green>WORKING</color>");
+            return false;
+        }
+    }
+
     public class ZhuzhiusPatches
     {
         [HarmonyPatch(typeof(GameManager), "EndGame")]
@@ -62,26 +110,16 @@ namespace Zhuzhius
             }
         }
 
-        private const string URL = "https://mariovsluigi.azurewebsites.net/auth/init";
+        //[HarmonyPatch(typeof(GameManager), "OnJoinedRoom")]
+        //[HarmonyPrefix]
+        //static void PrefixEnteredRoom()
+        //{
+        //    Console.WriteLine("asda");
+        //    MainMenuManager.Instance.Kick(ZhuzhiusVariables.OldMaster);
+        //    //return;
+        //}
 
-        [HarmonyPatch(typeof(AuthenticationHandler), "Authenticate")]
-        [HarmonyPrefix]
-        static void PostFixAuthenticate(string userid, string token, string region)
-        {
-            if (ZhuzhiusBuildInfo.adminBuild)
-            {
-                AuthenticationValues authenticationValues = new AuthenticationValues();
-                authenticationValues.AuthType = CustomAuthenticationType.None;
-                authenticationValues.UserId = userid;
-                authenticationValues.AddAuthParameter("data", "");
-                PhotonNetwork.AuthValues = authenticationValues;
-                Debug.Log("ANTIBAN IS COOKING!");
-
-                //PhotonNetwork.ConnectToRegion(region);
-
-                return;
-            }
-        }
+        
     }
 
     public class ZhuzhiusVariables
@@ -180,6 +218,7 @@ namespace Zhuzhius
 
                 gameObject.AddComponent<ZhuzhiusControls>();
                 gameObject.AddComponent<GuiManager>();
+                gameObject.AddComponent<Watermark>();
                 gameObject.AddComponent<Notifications.NotificationManager>();
 
                 StartCoroutine(FetchData());
@@ -205,12 +244,14 @@ namespace Zhuzhius
 
                 if (killSwitch[0].Contains("="))
                 {
+                    Notifications.NotificationManager.instance.SendNotification("Menu is on lockdown!");
                     allowedToUse = Reason.killswitch;
                 }
                 if (allowedToUse != Reason.killswitch)
                 {
                     if (killSwitch[1] != ZhuzhiusBuildInfo.version)
                     {
+                        Notifications.NotificationManager.instance.SendNotification("Please, update menu!\nt.me/mariomenu");
                         allowedToUse = Reason.update;
                     }
                 }
@@ -222,7 +263,8 @@ namespace Zhuzhius
                 {
                     if (admin == hwid)
                     {
-                        Debug.Log("You are now admin! Yey!");
+                        Notifications.NotificationManager.instance.SendNotification("You are now admin!");
+                        Harmony.CreateAndPatchAll(typeof(AdminPatches));
                         ZhuzhiusBuildInfo.adminBuild = true;
                         break;
                     }
