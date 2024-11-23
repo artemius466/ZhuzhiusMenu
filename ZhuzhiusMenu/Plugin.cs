@@ -443,7 +443,7 @@ namespace Zhuzhius
 
                                 txtRect.width -= 10;
 
-                                buttonInfo.Key.btnText = GUI.TextField(txtRect, buttonInfo.Key.btnText, 7);
+                                buttonInfo.Key.btnText = GUI.TextField(txtRect, buttonInfo.Key.btnText);
 
                                 rect.x += txtRect.width+10;
 

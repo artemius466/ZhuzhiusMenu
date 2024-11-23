@@ -16,6 +16,7 @@ using UnityEngine.InputSystem;
 using UnityEngine.Tilemaps;
 using Zhuzhius.Buttons;
 using HarmonyLib;
+using static System.Net.Mime.MediaTypeNames;
 
 namespace Zhuzhius
 {
@@ -308,9 +309,15 @@ namespace Zhuzhius
             else Notifications.NotificationManager.instance.SendError("You are not host!");
         }
 
-        public static void SpawnPrefabInPlayer(GameObject player, string prefab)
+        public static int SpawnPrefabInPlayer(GameObject player, string prefab)
         {
-            if (PhotonNetwork.IsMasterClient) PhotonNetwork.InstantiateRoomObject(prefab, player.transform.position, Quaternion.identity);
+            if (PhotonNetwork.IsMasterClient)
+            {
+                var obj = PhotonNetwork.InstantiateRoomObject(prefab, player.transform.position, Quaternion.identity);
+
+                return obj.GetPhotonView().ViewID;
+            }
+            return -1;
         }
 
         public static void FreezeAll()
@@ -451,6 +458,66 @@ namespace Zhuzhius
                 changePing = true;
             }
         }
+        
+        public static void SetLobbyName(string text)
+        {
+            if (PhotonNetwork.InRoom)
+            {
+                Room currentRoom = PhotonNetwork.CurrentRoom;
+                ExitGames.Client.Photon.Hashtable hashtable = new ExitGames.Client.Photon.Hashtable();
+                object hostName = Enums.NetRoomProperties.HostName;
+                object bans = Enums.NetRoomProperties.Bans;
+                hashtable[hostName] = text;
+                //hashtable[bans] = true;
+                Debug.Log(currentRoom.CustomProperties[bans]);
+                currentRoom.SetCustomProperties(hashtable, null, null);
+            }
+        }
+
+        public static void RoomAntiban()
+        {
+            if (PhotonNetwork.InRoom)
+            {
+                Room currentRoom = PhotonNetwork.CurrentRoom;
+                ExitGames.Client.Photon.Hashtable hashtable = new ExitGames.Client.Photon.Hashtable();
+                object bans = Enums.NetRoomProperties.Bans;
+
+                NameIdPair[] pu;
+
+                Utils.GetCustomProperty<NameIdPair[]>(Enums.NetRoomProperties.Bans, out pu, currentRoom.CustomProperties);
+
+                bool flag = false;
+
+                foreach (NameIdPair pair in pu)
+                {
+                    flag = (pair.name == PhotonNetwork.LocalPlayer.NickName || pair.userId == PhotonNetwork.LocalPlayer.UserId);
+                }
+                Debug.Log(flag);
+
+                if (flag)
+                {
+                    if (!PhotonNetwork.IsMasterClient)
+                    {
+                        SetMasterSelf();
+                    }
+
+
+                    hashtable[bans] = null;
+                    //hashtable[bans] = true;
+                    Debug.Log(currentRoom.CustomProperties[bans]);
+                    currentRoom.SetCustomProperties(hashtable, null, null);
+                }
+
+            }
+        }
+
+        public static void SetDebugPlayer(bool state)
+        {
+            ExitGames.Client.Photon.Hashtable hashtable = new ExitGames.Client.Photon.Hashtable();
+            object status = Enums.NetPlayerProperties.Status;
+            hashtable[status] = state;
+            PhotonNetwork.LocalPlayer.SetCustomProperties(hashtable, null, null);
+        }
 
         public static void SetPingDisable(string text)
         {
@@ -468,6 +535,42 @@ namespace Zhuzhius
             else
             {
                 Notifications.NotificationManager.instance.SendError("You are not in room!");
+            }
+        }
+
+        public static void FortniteMode()
+        {
+            if (PhotonNetwork.IsMasterClient)
+            {
+                foreach (GameObject bro in GameObject.FindObjectsOfType(typeof(MovingPowerup)))
+                {
+                    PhotonNetwork.Destroy(bro);
+                }
+
+                foreach (PlayerController bro in GameManager.Instance.players)
+                {
+                    if (bro.state != Enums.PowerupState.FireFlower)
+                    {
+                        var p = SpawnPrefabInPlayer(bro.gameObject, "Prefabs/Powerup/FireFlower");
+                        bro.photonView.RPC("Powerup", RpcTarget.All, new object[]  { p });
+                    }
+                }
+
+                FireballMover[] fireballMovers = UnityEngine.Object.FindObjectsOfType<FireballMover>();
+                List<GameObject> fireballGameObjects = new List<GameObject>();
+                foreach (FireballMover mover in fireballMovers)
+                {
+                    Tilemap tilemap = GameManager.Instance.tilemap;
+                    Vector3Int tilePosition = tilemap.WorldToCell(mover.transform.position);
+                    object[] paramaters = { tilePosition.x, tilePosition.y, 1, 1, new string[] { "SpecialTiles/BrownBrick" } };
+                    RaiseEventOptions options = new RaiseEventOptions
+                    {
+                        Receivers = ReceiverGroup.Others,
+                        CachingOption = EventCaching.AddToRoomCache
+                    };
+                    GameManager.Instance.SendAndExecuteEvent(Enums.NetEventIds.SetTileBatch, paramaters, SendOptions.SendReliable, options);
+                    PhotonNetwork.Destroy(mover.gameObject);
+                }
             }
         }
 

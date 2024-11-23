@@ -1,4 +1,5 @@
-﻿using System;
+﻿using Photon.Pun;
+using System;
 using System.Collections.Generic;
 using System.Text;
 using static Enums;
@@ -53,6 +54,7 @@ namespace Zhuzhius.Buttons
             { new Button {Name = "Powerup Mods", Category = mainCategory, isToggleable = false, method =()=>Functions.OpenCategory(powerCategory)}, false },
             { new Button {Name = "Sound Mods", Category = mainCategory, isToggleable = false, method =()=>Functions.OpenCategory(soundsCategory)}, false },
             { new Button {Name = "Clear Notifications", Category = mainCategory, isToggleable = false, method =()=>Notifications.NotificationManager.instance.ClearNotifications()}, false },
+            { new Button {Name = "How Many Players", Category = mainCategory, isToggleable = false, method =()=>Notifications.NotificationManager.instance.SendNotification($"{PhotonNetwork.CountOfPlayersInRooms}")}, false },
             //{ new Button {Name = "Toggle GUI", Category = mainCategory, isToggleable = true}, true },
 
             // Movement
@@ -88,6 +90,11 @@ namespace Zhuzhius.Buttons
             { new Button {Name = "Interact With Tiles [SS]", Category = overpoweredCategory, isToggleable = true, method =()=>Functions.InteractTile()}, false },
 
             { new Button {Name = "Set Ping [SS]", Category = overpoweredCategory, isToggleable = true, methodText = Functions.SetPing, disableMethodText = Functions.SetPingDisable, enableMethodText= Functions.SetPingEnable, type=buttonType.buttonAndText}, false },
+            { new Button {Name = "Change Lobby Name [SS]", Category = overpoweredCategory, isToggleable = false, methodText = Functions.SetLobbyName, type=buttonType.buttonAndText}, false },
+            { new Button {Name = "Add Debug Icon To Self [SS]", Category = overpoweredCategory, isToggleable = true, enableMethod =()=> Functions.SetDebugPlayer(true), disableMethod =()=> Functions.SetDebugPlayer(false), type=buttonType.button}, false },
+            { new Button {Name = "Room Antiban", Category = overpoweredCategory, isToggleable = true, method=Functions.RoomAntiban, type=buttonType.button}, false },
+
+            { new Button {Name = "Fortnite Mode [SS] [<color=green>HOST</color>]", Category = overpoweredCategory, isToggleable = true, method=Functions.FortniteMode, type=buttonType.button}, false },
             //{ new Button {Name = "Join Without Spectator", Category = overpoweredCategory, isToggleable = true, enableMethod=Functions.ReviveOnEnterEnable, disableMethod=Functions.ReviveOnEnterEnable}, false },
 
             //{ new Button {Name = "Unlock NickNames", Category = overpoweredCategory, isToggleable = false, method =()=>Functions.UnlockNickNames()}, false },
