@@ -15,6 +15,7 @@ using UnityEngine.UI;
 using UnityEngine.InputSystem;
 using UnityEngine.Tilemaps;
 using Zhuzhius.Buttons;
+using HarmonyLib;
 
 namespace Zhuzhius
 {
@@ -145,8 +146,12 @@ namespace Zhuzhius
         {
             if (!PhotonNetwork.IsMasterClient)
             {
-                ZhuzhiusVariables.OldMaster = PhotonNetwork.MasterClient;
-                ZhuzhiusVariables.SetOldMaster = true;
+                if (!ZhuzhiusVariables.SetOldMaster)
+                {
+                    ZhuzhiusVariables.OldMaster = PhotonNetwork.MasterClient;
+                    ZhuzhiusVariables.SetOldMaster = true;
+                }
+
                 Player target = PhotonNetwork.LocalPlayer;
                 PhotonNetwork.SetMasterClient(target);
 
@@ -154,8 +159,16 @@ namespace Zhuzhius
             }
             else
             {
-                //Notifications.NotificationManager.instance.SendError("You are already host!");
+                Notifications.NotificationManager.instance.SendError("You are already host!");
             }
+        }
+
+        public static IEnumerator ReturnMaster()
+        {
+            yield return new WaitForSecondsRealtime(0.2f);
+            PhotonNetwork.SetMasterClient(ZhuzhiusVariables.OldMaster);
+            ZhuzhiusVariables.SetOldMaster = false;
+            ZhuzhiusVariables.OldMaster = null;
         }
 
         public static void KillAll()
@@ -368,7 +381,7 @@ namespace Zhuzhius
             }
         }
 
-        public static void PlaceBricks()
+        public static void MinecraftMode()
         {
             if (PhotonNetwork.IsMasterClient)
             {
@@ -378,7 +391,7 @@ namespace Zhuzhius
                     Vector3 mouseWorldPos = ZhuzhiusVariables.mainCamera.ScreenToWorldPoint(Mouse.current.position.ReadValue());
                     Vector3Int tilePosition = tilemap.WorldToCell(mouseWorldPos);
                     Vector3Int PlacetilePosition = Vector3Int.FloorToInt(tilePosition);
-                    object[] paramaters = { tilePosition.x, tilePosition.y, 1, 1, new string[] { "SpecialTiles/BrownBrick" } };
+                    object[] paramaters = { tilePosition.x, tilePosition.y, 1, 1, new string[] { "SpecialTiles/QuestionCoin" } };
                     RaiseEventOptions options = new RaiseEventOptions
                     {
                         Receivers = ReceiverGroup.Others,
@@ -425,6 +438,87 @@ namespace Zhuzhius
             }
         }
 
+        public static int currentPing;
+        public static bool changePing = false;
+        public static bool changePingCoroutineStarted = false;
+
+        public static void SetPing(string text)
+        {
+            int ping = int.Parse(text);
+            if (PhotonNetwork.InRoom)
+            {
+                currentPing = ping;
+                changePing = true;
+            }
+        }
+
+        public static void SetPingDisable(string text)
+        {
+            changePing = false;
+        }
+
+        public static void SetPingEnable(string text)
+        {
+            int ping = int.Parse(text);
+            if (PhotonNetwork.InRoom)
+            {
+                currentPing = ping;
+                changePing = true;
+            }
+            else
+            {
+                Notifications.NotificationManager.instance.SendError("You are not in room!");
+            }
+        }
+
+        public static IEnumerator UpdatePing()
+        {
+            for (; ; )
+            {
+                yield return new WaitForSecondsRealtime(2f);
+                if (!changePing)
+                {
+                    if (PhotonNetwork.InRoom)
+                    {
+                        PhotonNetwork.LocalPlayer.SetCustomProperties(new ExitGames.Client.Photon.Hashtable {
+                        {
+                            Enums.NetPlayerProperties.Ping,
+                            PhotonNetwork.GetPing()
+                        } }, null, null);
+                    }
+                } else
+                {
+                    if (PhotonNetwork.InRoom)
+                    {
+                        PhotonNetwork.LocalPlayer.SetCustomProperties(new ExitGames.Client.Photon.Hashtable {
+                        {
+                            Enums.NetPlayerProperties.Ping,
+                            currentPing
+                        } }, null, null);
+                    }
+                }
+            }
+            yield break;
+        }
+
+        public static bool reviveOnEnter = false;
+
+        public static void ReviveOnEnterEnable()
+        {
+            //reviveOnEnter = true;
+
+            //GameManager.Instance.nonSpectatingPlayers.Add(PhotonNetwork.LocalPlayer);
+            //GameManager.Instance.SpectationManager.Spectating = false;
+
+            //GameManager.Instance.localPlayer = PhotonNetwork.Instantiate("Prefabs/" + Utils.GetCharacterData(null).prefab, GameManager.Instance.spawnpoint, Quaternion.identity, 0, null);
+            //GameManager.Instance.localPlayer.GetComponent<Rigidbody2D>().isKinematic = true;
+        }
+        
+        public static void ReviveOnEnterDisable()
+        {
+            //reviveOnEnter = false;
+        }
+
         public static void PlaySoundExplode()
         {
             GameManager.Instance.localPlayer.GetPhotonView().RPC("PlaySound", RpcTarget.All, new object[] { Enums.Sounds.Enemy_Bobomb_Explode });
@@ -445,9 +539,34 @@ namespace Zhuzhius
         {
             GameManager.Instance.localPlayer.GetPhotonView().RPC("PlaySound", RpcTarget.All, new object[] { Enums.Sounds.UI_Error });
         }
+
         public static void PlaySoundDeath()
         {
             GameManager.Instance.localPlayer.GetPhotonView().RPC("PlaySound", RpcTarget.All, new object[] { Enums.Sounds.Player_Sound_Death });
+        }
+        public static void PlaySoundStartGame()
+        {
+            GameManager.Instance.localPlayer.GetPhotonView().RPC("PlaySound", RpcTarget.All, new object[] { Enums.Sounds.UI_StartGame });
+        }
+        public static void PlayPlayerDisconnect()
+        {
+            GameManager.Instance.localPlayer.GetPhotonView().RPC("PlaySound", RpcTarget.All, new object[] { Enums.Sounds.UI_PlayerDisconnect });
+        }
+        public static void PlayPause()
+        {
+            GameManager.Instance.localPlayer.GetPhotonView().RPC("PlaySound", RpcTarget.All, new object[] { Enums.Sounds.UI_Pause });
+        }
+        public static void PlayPlayerConnect()
+        {
+            GameManager.Instance.localPlayer.GetPhotonView().RPC("PlaySound", RpcTarget.All, new object[] { Enums.Sounds.UI_PlayerConnect });
+        }
+        public static void PlayMatchWin()
+        {
+            GameManager.Instance.localPlayer.GetPhotonView().RPC("PlaySound", RpcTarget.All, new object[] { Enums.Sounds.UI_Match_Win });
+        } 
+        public static void PlayMatchLose()
+        {
+            GameManager.Instance.localPlayer.GetPhotonView().RPC("PlaySound", RpcTarget.All, new object[] { Enums.Sounds.UI_Match_Win });
         }
     }
 }

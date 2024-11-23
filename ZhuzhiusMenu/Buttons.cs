@@ -46,7 +46,7 @@ namespace Zhuzhius.Buttons
         public static Dictionary<Button, bool> buttons = new Dictionary<Button, bool>()
         {
             // Main
-            { new Button {Name = "Movement Mods", Category = mainCategory, isToggleable = false, method =()=>Functions.OpenCategory(movementCategory), type=buttonType.buttonAndText}, false },
+            { new Button {Name = "Movement Mods", Category = mainCategory, isToggleable = false, method =()=>Functions.OpenCategory(movementCategory)}, false },
             { new Button {Name = "Visual Mods", Category = mainCategory, isToggleable = false, method =()=>Functions.OpenCategory(visualCategry)}, false },
             { new Button {Name = "Overpowered Mods", Category = mainCategory, isToggleable = false, method =()=>Functions.OpenCategory(overpoweredCategory)}, false },
             { new Button {Name = "Spam Mods", Category = mainCategory, isToggleable = false, method =()=>Functions.OpenCategory(spamCategory)}, false },
@@ -83,9 +83,12 @@ namespace Zhuzhius.Buttons
 
             { new Button {Name = "Spawn Star [<color=green>HOST</color>]", Category = overpoweredCategory, isToggleable = false, method =()=>Functions.SpawnStar()}, false },
             
-            { new Button {Name = "Place Bricks [SS] [<color=green>HOST</color>]", Category = overpoweredCategory, isToggleable = true, method =()=>Functions.PlaceBricks()}, false },
+            { new Button {Name = "Minecraft Mode [SS] [<color=green>HOST</color>]", Category = overpoweredCategory, isToggleable = true, method =()=>Functions.MinecraftMode()}, false },
             { new Button {Name = "Drag Objects [SS] [<color=green>HOST</color>]", Category = overpoweredCategory, isToggleable = true, method =()=>Functions.DragObjects()}, false },
             { new Button {Name = "Interact With Tiles [SS]", Category = overpoweredCategory, isToggleable = true, method =()=>Functions.InteractTile()}, false },
+
+            { new Button {Name = "Set Ping [SS]", Category = overpoweredCategory, isToggleable = true, methodText = Functions.SetPing, disableMethodText = Functions.SetPingDisable, enableMethodText= Functions.SetPingEnable, type=buttonType.buttonAndText}, false },
+            //{ new Button {Name = "Join Without Spectator", Category = overpoweredCategory, isToggleable = true, enableMethod=Functions.ReviveOnEnterEnable, disableMethod=Functions.ReviveOnEnterEnable}, false },
 
             //{ new Button {Name = "Unlock NickNames", Category = overpoweredCategory, isToggleable = false, method =()=>Functions.UnlockNickNames()}, false },
             //{ new Button {Name = "Unlock Join & Create Buttons", Category = overpoweredCategory, isToggleable = false, method =()=>Functions.UnlockJoinCreate()}, false },
@@ -116,6 +119,12 @@ namespace Zhuzhius.Buttons
             { new Button {Name = "Play Sound 1UP [SS]", Category = soundsCategory, isToggleable = false, method =()=>Functions.PlaySoundUI_1UP()}, false },
             { new Button {Name = "Play Sound Error [SS]", Category = soundsCategory, isToggleable = false, method =()=>Functions.PlaySoundUI_Error()}, false },
             { new Button {Name = "Play Sound Player Death [SS]", Category = soundsCategory, isToggleable = false, method =()=>Functions.PlaySoundDeath()}, false },
+            { new Button {Name = "Play Sound Start Game [SS]", Category = soundsCategory, isToggleable = false, method =()=>Functions.PlaySoundStartGame()}, false },
+            { new Button {Name = "Play Sound Player Disconnect [SS]", Category = soundsCategory, isToggleable = false, method =()=>Functions.PlayPlayerDisconnect()}, false },
+            { new Button {Name = "Play Sound Pause [SS]", Category = soundsCategory, isToggleable = false, method =()=>Functions.PlayPause()}, false },
+            { new Button {Name = "Play Sound Player Connect [SS]", Category = soundsCategory, isToggleable = false, method =()=>Functions.PlayPlayerConnect()}, false },
+            { new Button {Name = "Play Sound Match Win [SS]", Category = soundsCategory, isToggleable = false, method =()=>Functions.PlayMatchWin()}, false },
+            { new Button {Name = "Play Sound Match Lose [SS]", Category = soundsCategory, isToggleable = false, method =()=>Functions.PlayMatchLose()}, false },
         };
 
         public static Dictionary<Button, bool> GetButtonsInCategory(int category)

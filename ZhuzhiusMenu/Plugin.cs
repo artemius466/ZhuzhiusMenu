@@ -14,13 +14,14 @@ using UnityEngine.Networking;
 using UnityEngine.UI;
 using System.Collections;
 using System.Linq;
+using System.Reflection;
 
 namespace Zhuzhius
 {
     public struct ZhuzhiusBuildInfo
     {
         public static bool adminBuild = false;
-        public const string version = "1.2.1";
+        public const string version = "1.3.0";
     }
 
     public class ZhuzhiusMain
@@ -37,7 +38,10 @@ namespace Zhuzhius
 
         public static void Inject()
         {
-            Harmony.CreateAndPatchAll(typeof(EndGamePatch));
+            Harmony instance = new Harmony("default");
+            instance.PatchAll(typeof(EndGamePatch));
+            instance.PatchAll(typeof(UpdatePingPatch));
+            instance.PatchAll(typeof(OnEventPatch));
 
             GameObject _menu = new GameObject();
             _menu.AddComponent<ZhuzhiusMenu>();
@@ -110,6 +114,39 @@ namespace Zhuzhius
             }
         }
     }
+
+    [HarmonyPatch(typeof(MainMenuManager), "UpdatePing")]
+    public class UpdatePingPatch
+    {
+        [HarmonyPrefix]
+        static bool Prefix()
+        {
+            if (!Functions.changePingCoroutineStarted) ZhuzhiusVariables.instance.StartCoroutine(Functions.UpdatePing());
+            Functions.changePingCoroutineStarted = true;
+            return false;
+        }
+    }
+    
+    [HarmonyPatch(typeof(MainMenuManager), "OnEvent")]
+    public class OnEventPatch
+    {
+        [HarmonyPrefix]
+        static void Prefix(EventData e)
+        {
+            Debug.Log("OnEvent called");
+            
+            //if (Functions.reviveOnEnter && PhotonNetwork.InRoom && e.Code==1) 
+            //{
+            //    Functions.SetMasterSelf();
+            //    var mainMenuInstance = MainMenuManager.Instance;
+            //    FieldInfo joinedLateField = typeof(MainMenuManager).GetField("joinedLate", BindingFlags.NonPublic | BindingFlags.Instance);
+            //    joinedLateField.SetValue(mainMenuInstance, false);
+            //    ZhuzhiusVariables.instance.StartCoroutine(Functions.ReturnMaster());
+            //}
+        }
+    }
+
+
 
     public class ZhuzhiusVariables
     {
@@ -435,21 +472,41 @@ namespace Zhuzhius
                         {
                             if (allowedToUse == Reason.allowed)
                             {
-                                if (buttonInfo.Key.isToggleable)
+                                if (buttonInfo.Key.type == Buttons.Buttons.buttonType.button)
                                 {
-                                    Buttons.Buttons.buttons[buttonInfo.Key] = !buttonInfo.Value;
-                                    if (buttonInfo.Value)
+                                    if (buttonInfo.Key.isToggleable)
                                     {
-                                        Notifications.NotificationManager.instance.SendNotification($"[<color=red>OFF</color>] {buttonInfo.Key.Name}");
-                                        if (buttonInfo.Key.enableMethod != null) buttonInfo.Key.disableMethod.Invoke();
+                                        Buttons.Buttons.buttons[buttonInfo.Key] = !buttonInfo.Value;
+                                        if (buttonInfo.Value)
+                                        {
+                                            Notifications.NotificationManager.instance.SendNotification($"[<color=red>OFF</color>] {buttonInfo.Key.Name}");
+                                            if (buttonInfo.Key.enableMethod != null) buttonInfo.Key.disableMethod.Invoke();
+                                        }
+                                        else
+                                        {
+                                            Notifications.NotificationManager.instance.SendNotification($"[<color=green>ON</color>] {buttonInfo.Key.Name}");
+                                            if (buttonInfo.Key.disableMethod != null) buttonInfo.Key.enableMethod.Invoke();
+                                        }
                                     }
-                                    else
+                                    else { Notifications.NotificationManager.instance.SendNotification($"[<color=green>ON</color>] {buttonInfo.Key.Name}"); if (buttonInfo.Key.method != null) buttonInfo.Key.method.Invoke(); }
+                                } else if (buttonInfo.Key.type == Buttons.Buttons.buttonType.buttonAndText)
+                                {
+                                    if (buttonInfo.Key.isToggleable)
                                     {
-                                        Notifications.NotificationManager.instance.SendNotification($"[<color=green>ON</color>] {buttonInfo.Key.Name}");
-                                        if (buttonInfo.Key.disableMethod != null) buttonInfo.Key.enableMethod.Invoke();
+                                        Buttons.Buttons.buttons[buttonInfo.Key] = !buttonInfo.Value;
+                                        if (buttonInfo.Value)
+                                        {
+                                            Notifications.NotificationManager.instance.SendNotification($"[<color=red>OFF</color>] {buttonInfo.Key.Name}");
+                                            if (buttonInfo.Key.disableMethodText != null) buttonInfo.Key.disableMethodText.Invoke(buttonInfo.Key.btnText);
+                                        }
+                                        else
+                                        {
+                                            Notifications.NotificationManager.instance.SendNotification($"[<color=green>ON</color>] {buttonInfo.Key.Name}");
+                                            if (buttonInfo.Key.enableMethodText != null) buttonInfo.Key.enableMethodText.Invoke(buttonInfo.Key.btnText);
+                                        }
                                     }
+                                    else { Notifications.NotificationManager.instance.SendNotification($"[<color=green>ON</color>] {buttonInfo.Key.Name}"); if (buttonInfo.Key.methodText != null) buttonInfo.Key.methodText.Invoke(buttonInfo.Key.btnText); }
                                 }
-                                else { Notifications.NotificationManager.instance.SendNotification($"[<color=green>ON</color>] {buttonInfo.Key.Name}"); if (buttonInfo.Key.method != null) buttonInfo.Key.method.Invoke(); }
                             } else
                             {
                                 Notifications.NotificationManager.instance.SendNotification($"You are not allowed to use menu for some reason... Check window title.");
