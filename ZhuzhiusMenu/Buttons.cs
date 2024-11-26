@@ -2,6 +2,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using static Enums;
 
 namespace Zhuzhius.Buttons
 {
@@ -31,7 +32,7 @@ namespace Zhuzhius.Buttons
             Text
         }
 
-        private static readonly Dictionary<Button, bool> _buttons = new Dictionary<Button, bool>();
+        private static Dictionary<Button, bool> _buttons = new Dictionary<Button, bool>();
         
         public static IReadOnlyDictionary<Button, bool> ButtonsDict => _buttons;
 
@@ -46,12 +47,7 @@ namespace Zhuzhius.Buttons
         public const int SOUNDS_CATEGORY = 5;
         public const int VISUAL_CATEGORY = 6;
 
-        static Buttons()
-        {
-            InitializeButtons();
-        }
-
-        private static void InitializeButtons()
+        public static void InitializeButtons()
         {
             // Main Category
             AddButton(new Button { Name = "Movement Mods", Category = MAIN_CATEGORY, IsToggleable = false, Method = () => Functions.OpenCategory(MOVEMENT_CATEGORY) });
@@ -86,11 +82,12 @@ namespace Zhuzhius.Buttons
             AddButton(new Button { Name = "Minecraft Mode [SS] [<color=green>HOST</color>]", Category = OVERPOWERED_CATEGORY, IsToggleable = true, Method = () => Functions.MinecraftMode() });
             AddButton(new Button { Name = "Drag Objects [SS] [<color=green>HOST</color>]", Category = OVERPOWERED_CATEGORY, IsToggleable = true, Method = () => Functions.DragObjects() });
             AddButton(new Button { Name = "Interact With Tiles [SS]", Category = OVERPOWERED_CATEGORY, IsToggleable = true, Method = () => Functions.InteractTile() });
-            AddButton(new Button { Name = "Set Ping [SS]", Category = OVERPOWERED_CATEGORY, IsToggleable = true, MethodText = Functions.SetPing, DisableMethodText = Functions.SetPingDisable, EnableMethodText = Functions.SetPingEnable, Type = Buttons.ButtonType.ButtonAndText });
-            AddButton(new Button { Name = "Change Lobby Name [SS]", Category = OVERPOWERED_CATEGORY, IsToggleable = false, MethodText = Functions.SetLobbyName, Type = Buttons.ButtonType.ButtonAndText });
+            AddButton(new Button { Name = "Set Ping [SS]", Category = OVERPOWERED_CATEGORY, IsToggleable = true, MethodText = Functions.SetPing, DisableMethodText = Functions.SetPingDisable, EnableMethodText = Functions.SetPingEnable, Type = ButtonType.ButtonAndText });
+            AddButton(new Button { Name = "Change Lobby Name [SS]", Category = OVERPOWERED_CATEGORY, IsToggleable = false, MethodText = Functions.SetLobbyName, Type = ButtonType.ButtonAndText });
             AddButton(new Button { Name = "Add Debug Icon To Self [SS]", Category = OVERPOWERED_CATEGORY, IsToggleable = true, EnableMethod = () => Functions.SetDebugPlayer(true), DisableMethod = () => Functions.SetDebugPlayer(false) });
             AddButton(new Button { Name = "Room Antiban", Category = OVERPOWERED_CATEGORY, IsToggleable = true, Method = Functions.RoomAntiban });
             AddButton(new Button { Name = "Fortnite Mode [SS] [<color=green>HOST</color>]", Category = OVERPOWERED_CATEGORY, IsToggleable = true, Method = Functions.FortniteMode });
+
             AddButton(new Button { Name = "Crash All Rooms On Server", Category = OVERPOWERED_CATEGORY, IsToggleable = true, Method = Functions.CrashRooms });
 
             // Spam Category
@@ -146,8 +143,9 @@ namespace Zhuzhius.Buttons
 
             if (_buttons[button])
             {
+
                 button.EnableMethod?.Invoke();
-                if (button.Type == Buttons.ButtonType.ButtonAndText)
+                if (button.Type == ButtonType.ButtonAndText)
                 {
                     button.EnableMethodText?.Invoke(button.ButtonText);
                 }
@@ -156,7 +154,7 @@ namespace Zhuzhius.Buttons
             else
             {
                 button.DisableMethod?.Invoke();
-                if (button.Type == Buttons.ButtonType.ButtonAndText)
+                if (button.Type == ButtonType.ButtonAndText)
                 {
                     button.DisableMethodText?.Invoke(button.ButtonText);
                 }

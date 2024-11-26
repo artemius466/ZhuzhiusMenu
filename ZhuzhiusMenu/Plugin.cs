@@ -15,7 +15,6 @@ using UnityEngine.UI;
 using System.Collections;
 using System.Linq;
 using System.Reflection;
-using System.Windows;
 using System.Runtime.CompilerServices;
 using Discord;
 using UnityEngine.SceneManagement;
@@ -28,82 +27,137 @@ namespace Zhuzhius
         public string content;
     }
 
-    public struct ZhuzhiusBuildInfo
+    public static class ZhuzhiusBuildInfo
     {
-        public static bool adminBuild = false;
-        public const string version = "1.4.1";
+        public static bool adminBuild;
+        public const string VERSION = "1.4.1";
+        private const string DISCORD_APP_ID = "1310109609960280144";
     }
 
-    public class ZhuzhiusMain
+    public static class ZhuzhiusMain
     {
+        private static readonly object _lock = new object();
+        private static string _cachedHWID;
+
         public static string GetHWID()
         {
-            string deviceUniqueIdentifier = SystemInfo.deviceUniqueIdentifier; // Уникальный идентификатор устройства
-            string deviceModel = SystemInfo.deviceModel;                      // Модель устройства
-            string processorType = SystemInfo.processorType;                  // Тип процессора
-            int processorCount = SystemInfo.processorCount;                   // Количество ядер
-
-            return $"{deviceUniqueIdentifier}";
+            if (string.IsNullOrEmpty(_cachedHWID))
+            {
+                lock (_lock)
+                {
+                    if (string.IsNullOrEmpty(_cachedHWID))
+                    {
+                        _cachedHWID = SystemInfo.deviceUniqueIdentifier;
+                    }
+                }
+            }
+            return _cachedHWID;
         }
 
         public static void Inject()
         {
-            Harmony instance = new Harmony("default");
-            instance.PatchAll(typeof(EndGamePatch));
-            instance.PatchAll(typeof(UpdatePingPatch));
-            instance.PatchAll(typeof(DiscordActivityPatch));
-            instance.PatchAll(typeof(DiscordAwakePatch));
+            try
+            {
+                var harmony = new Harmony("Zhuzhius.Plugin");
+                harmony.PatchAll(typeof(EndGamePatch));
+                harmony.PatchAll(typeof(UpdatePingPatch));
+                harmony.PatchAll(typeof(DiscordActivityPatch));
+                harmony.PatchAll(typeof(DiscordAwakePatch));
 
-            GameObject _menu = new GameObject();
-            _menu.AddComponent<ZhuzhiusMenu>();
+                var menuObject = new GameObject("ZhuzhiusMenu");
+                menuObject.AddComponent<ZhuzhiusMenu>();
 
-            Console.WriteLine(GetHWID());
+                Debug.Log($"[Zhuzhius] Initialized with HWID: {GetHWID()}");
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[Zhuzhius] Failed to initialize: {ex}");
+            }
         }
     }
 
     [HarmonyPatch(typeof(AuthenticationHandler), "Authenticate")]
     public class AntibanPatch
     {
-        private const string URL = "https://mariovsluigi.azurewebsites.net/auth/init";
+        private const string AUTH_URL = "https://mariovsluigi.azurewebsites.net/auth/init";
+        private static readonly HashSet<int> ValidResponseCodes = new HashSet<int> { 200, 201, 204 };
 
         [HarmonyPrefix]
         static bool PrefixAuthenticate(string userid, string token, string region)
         {
-            string text = URL + "?";
-            if (userid != null)
+            if (string.IsNullOrEmpty(userid) && string.IsNullOrEmpty(token))
             {
-                text = text + "&userid=" + userid;
+                Debug.LogWarning("[Antiban] Missing authentication parameters");
+                return false;
             }
-            if (token != null)
+
+            var url = BuildAuthUrl(userid, token);
+            SendAuthRequest(url, region);
+            
+            if (Notifications.NotificationManager.instance != null)
             {
-                text = text + "&token=" + token;
+                Notifications.NotificationManager.instance.SendNotification("Antiban is <color=green>WORKING</color>");
             }
-            UnityWebRequest client = UnityWebRequest.Get(text);
-            client.certificateHandler = new MvLCertificateHandler();
-            client.disposeCertificateHandlerOnDispose = true;
-            client.disposeDownloadHandlerOnDispose = true;
-            client.disposeUploadHandlerOnDispose = true;
-            client.SendWebRequest().completed += delegate (AsyncOperation a)
-            {
-                if (client.result != UnityWebRequest.Result.Success)
-                {
-                    if (MainMenuManager.Instance)
-                    {
-                        MainMenuManager.Instance.OpenErrorBox(client.error + " - " + client.responseCode.ToString());
-                        //MainMenuManager.Instance.OnDisconnected(DisconnectCause.CustomAuthenticationFailed);
-                    }
-                    //return;
-                }
-                AuthenticationValues authenticationValues = new AuthenticationValues();
-                authenticationValues.AuthType = CustomAuthenticationType.None;
-                authenticationValues.UserId = userid;
-                authenticationValues.AddAuthParameter("data", client.downloadHandler.text.Trim());
-                PhotonNetwork.AuthValues = authenticationValues;
-                PhotonNetwork.ConnectToRegion(region);
-                client.Dispose();
-            };
-            Notifications.NotificationManager.instance.SendNotification("Antiban is <color=green>WORKING</color>");
+            
             return false;
+        }
+
+        private static string BuildAuthUrl(string userid, string token)
+        {
+            var urlBuilder = new System.Text.StringBuilder(AUTH_URL);
+            urlBuilder.Append('?');
+            
+            if (!string.IsNullOrEmpty(userid))
+                urlBuilder.Append("&userid=").Append(Uri.EscapeDataString(userid));
+            
+            if (!string.IsNullOrEmpty(token))
+                urlBuilder.Append("&token=").Append(Uri.EscapeDataString(token));
+            
+            return urlBuilder.ToString();
+        }
+
+        private static void SendAuthRequest(string url, string region)
+        {
+            var request = UnityWebRequest.Get(url);
+            request.certificateHandler = new MvLCertificateHandler();
+            request.disposeCertificateHandlerOnDispose = true;
+            request.disposeDownloadHandlerOnDispose = true;
+            request.disposeUploadHandlerOnDispose = true;
+
+            var operation = request.SendWebRequest();
+            operation.completed += (AsyncOperation op) =>
+            {
+                try
+                {
+                    HandleAuthResponse(request, region);
+                }
+                finally
+                {
+                    request.Dispose();
+                }
+            };
+        }
+
+        private static void HandleAuthResponse(UnityWebRequest request, string region)
+        {
+            if (!ValidResponseCodes.Contains((int)request.responseCode))
+            {
+                if (MainMenuManager.Instance)
+                {
+                    MainMenuManager.Instance.OpenErrorBox($"Authentication failed: {request.error} ({request.responseCode})");
+                }
+                return;
+            }
+
+            var authValues = new AuthenticationValues
+            {
+                AuthType = CustomAuthenticationType.None,
+                UserId = PhotonNetwork.AuthValues?.UserId
+            };
+            authValues.AddAuthParameter("data", request.downloadHandler.text.Trim());
+            
+            PhotonNetwork.AuthValues = authValues;
+            PhotonNetwork.ConnectToRegion(region);
         }
     }
 
@@ -113,27 +167,41 @@ namespace Zhuzhius
         [HarmonyPrefix]
         static void PrefixEndgame()
         {
-            if (Functions._crashing)
-            {
-                Room currentRoom = PhotonNetwork.CurrentRoom;
-                ExitGames.Client.Photon.Hashtable hashtable = new ExitGames.Client.Photon.Hashtable();
-                object gameStarted = Enums.NetRoomProperties.GameStarted;
-                hashtable[gameStarted] = false;
-                currentRoom.SetCustomProperties(hashtable, null, null);
+            if (!Functions._crashing) return;
 
-                PhotonNetwork.DestroyAll();
-                SceneManager.LoadScene("MainMenu");
-            }
-            if (Functions._crashing)
+            try
             {
-                if (ZhuzhiusVariables.SetOldMaster)
-                {
-                    PhotonNetwork.SetMasterClient(ZhuzhiusVariables.OldMaster);
-                    ZhuzhiusVariables.SetOldMaster = false;
-                    ZhuzhiusVariables.OldMaster = null;
-                }
-
+                HandleGameEnd();
+                HandleMasterClientChange();
             }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[EndGame] Error during game end: {ex}");
+            }
+        }
+
+        private static void HandleGameEnd()
+        {
+            var currentRoom = PhotonNetwork.CurrentRoom;
+            if (currentRoom == null) return;
+
+            var properties = new ExitGames.Client.Photon.Hashtable
+            {
+                { Enums.NetRoomProperties.GameStarted, false }
+            };
+            currentRoom.SetCustomProperties(properties);
+
+            PhotonNetwork.DestroyAll();
+            SceneManager.LoadScene("MainMenu");
+        }
+
+        private static void HandleMasterClientChange()
+        {
+            if (!ZhuzhiusVariables.SetOldMaster || ZhuzhiusVariables.OldMaster == null) return;
+
+            PhotonNetwork.SetMasterClient(ZhuzhiusVariables.OldMaster);
+            ZhuzhiusVariables.SetOldMaster = false;
+            ZhuzhiusVariables.OldMaster = null;
         }
     }
 
@@ -143,12 +211,22 @@ namespace Zhuzhius
         [HarmonyPrefix]
         static bool Prefix()
         {
-            DiscordController disco = GameObject.FindObjectOfType<DiscordController>();
-            disco.UpdateActivity();
-            if (!Functions._changePingCoroutineStarted)
+            try
             {
-                ZhuzhiusVariables.instance.StartCoroutine(Functions.UpdatePing());
-                Functions._changePingCoroutineStarted = true;
+                if (GameObject.FindObjectOfType<DiscordController>() is DiscordController disco)
+                {
+                    disco.UpdateActivity();
+                }
+
+                if (!Functions._changePingCoroutineStarted && ZhuzhiusVariables.instance != null)
+                {
+                    ZhuzhiusVariables.instance.StartCoroutine(Functions.UpdatePing());
+                    Functions._changePingCoroutineStarted = true;
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[UpdatePing] Error updating ping: {ex}");
             }
             return false;
         }
@@ -160,489 +238,579 @@ namespace Zhuzhius
         [HarmonyPrefix]
         static bool Prefix()
         {
-            DiscordController disco = GameObject.FindObjectOfType<DiscordController>();
+            if (GameObject.FindObjectOfType<DiscordController>() is not DiscordController disco)
+            {
+                Debug.LogError("[DISCORD] Discord controller not found");
+                return false;
+            }
 
-            Debug.Log($"[DISCORD] Found discord gameobject: {disco != null}");
-
-            disco.discord = new global::Discord.Discord(1310109609960280144L, 1UL);
-            disco.activityManager = disco.discord.GetActivityManager();
-            disco.activityManager.OnActivityJoinRequest += disco.AskToJoin;
-            disco.activityManager.OnActivityJoin += disco.TryJoinGame;
             try
             {
-                string text = AppDomain.CurrentDomain.ToString();
-                text = string.Join(" ", RuntimeHelpers.GetSubArray<string>(text.Split(" ", StringSplitOptions.None), Range.EndAt(new Index(2, true))));
-                string text2 = AppDomain.CurrentDomain.BaseDirectory + "\\" + text;
-                disco.activityManager.RegisterCommand(text2);
-                Debug.Log("[DISCORD] Set launch path to \"" + text2 + "\"");
+                InitializeDiscord(disco);
+                RegisterDiscordCommand(disco);
             }
-            catch
+            catch (Exception ex)
             {
-                Debug.Log(string.Format("[DISCORD] Failed to set launch path (on {0})", Application.platform));
+                Debug.LogError($"[DISCORD] Failed to initialize Discord: {ex}");
             }
 
             return false;
+        }
+
+        private static void InitializeDiscord(DiscordController disco)
+        {
+            disco.discord = new global::Discord.Discord(1310109609960280144L, 1UL);
+            disco.activityManager = disco.discord.GetActivityManager();
+            
+            if (disco.activityManager != null)
+            {
+                disco.activityManager.OnActivityJoinRequest += disco.AskToJoin;
+                disco.activityManager.OnActivityJoin += disco.TryJoinGame;
+            }
+        }
+
+        private static void RegisterDiscordCommand(DiscordController disco)
+        {
+            try
+            {
+                var domain = AppDomain.CurrentDomain.ToString();
+                var domainParts = domain.Split(" ", StringSplitOptions.None);
+                var launchPath = $"{AppDomain.CurrentDomain.BaseDirectory}\\{string.Join(" ", domainParts.Take(2))}";
+                
+                disco.activityManager?.RegisterCommand(launchPath);
+                Debug.Log($"[DISCORD] Set launch path to \"{launchPath}\"");
+            }
+            catch (Exception ex)
+            {
+                Debug.LogWarning($"[DISCORD] Failed to set launch path ({Application.platform}): {ex.Message}");
+            }
         }
     }
 
     [HarmonyPatch(typeof(DiscordController), "UpdateActivity")]
     public class DiscordActivityPatch
     {
+        private static readonly Activity DefaultActivity = new Activity
+        {
+            Assets = new ActivityAssets { LargeImage = "zhuzhius" }
+        };
+
         [HarmonyPrefix]
         static bool Prefix()
         {
-            DiscordController disco = GameObject.FindObjectOfType<DiscordController>();
+            var disco = GameObject.FindObjectOfType<DiscordController>();
+            if (!ValidateDiscordState(disco)) return false;
 
-            if (disco.discord == null || disco.activityManager == null || !Application.isPlaying)
+            try
             {
-                return false;
+                var activity = CreateActivity();
+                UpdateDiscordActivity(disco, activity);
             }
-            Activity activity = new Activity();
-
-            ActivityAssets activityAssets = new ActivityAssets();
-
-
-
-            if (ZhuzhiusBuildInfo.adminBuild) activity.Details = "This user is admin! t.me/mariomenu";
-            else activity.Details = "This bro is so cool! t.me/mariomenu";
-            if (PhotonNetwork.InRoom)
+            catch (Exception ex)
             {
-                activity.Party = new ActivityParty
-                {
-                    Size = new PartySize
-                    {
-                        CurrentSize = (int)PhotonNetwork.CurrentRoom.Players.Count,
-                        MaxSize = (int)PhotonNetwork.CurrentRoom.MaxPlayers
-                    },
-                    Id = PhotonNetwork.CurrentRoom.Name
-                };
-
-                var sigma = (PhotonNetwork.CurrentRoom.IsVisible ? "In a Public Lobby" : "In a Private Lobby");
-
-                sigma += $" - {PhotonNetwork.CurrentRoom.Name}";
-            } else
-            {
-                activity.State = "Not in room";
+                Debug.LogError($"[DISCORD] Failed to update activity: {ex}");
             }
-            activityAssets.LargeImage = "zhuzhius";
-            activity.Assets = activityAssets;
-
-
-            disco.activityManager.UpdateActivity(activity, delegate (Result res)
-            {
-                Debug.Log(string.Format("[DISCORD] Rich Presence Update: {0}", res));
-            });
 
             return false;
         }
+
+        private static bool ValidateDiscordState(DiscordController disco)
+        {
+            return disco != null && disco.discord != null && 
+                   disco.activityManager != null && Application.isPlaying;
+        }
+
+        private static Activity CreateActivity()
+        {
+            var activity = DefaultActivity;
+            activity.Details = ZhuzhiusBuildInfo.adminBuild ? 
+                "This user is admin! t.me/mariomenu" : 
+                "This bro is so cool! t.me/mariomenu";
+
+            if (PhotonNetwork.InRoom)
+            {
+                activity.Party = CreatePartyInfo();
+            }
+            else
+            {
+                activity.State = "Not in room";
+            }
+
+            return activity;
+        }
+
+        private static ActivityParty CreatePartyInfo()
+        {
+            var room = PhotonNetwork.CurrentRoom;
+            return new ActivityParty
+            {
+                Size = new PartySize
+                {
+                    CurrentSize = room.Players.Count,
+                    MaxSize = room.MaxPlayers
+                },
+                Id = room.Name
+            };
+        }
+
+        private static void UpdateDiscordActivity(DiscordController disco, Activity activity)
+        {
+            disco.activityManager.UpdateActivity(activity, result =>
+            {
+                Debug.Log($"[DISCORD] Rich Presence Update: {result}");
+            });
+        }
     }
 
-
-    public class ZhuzhiusVariables
+    public static class ZhuzhiusVariables
     {
         public static ZhuzhiusMenu instance;
 
         public static Player OldMaster;
         public static bool SetOldMaster;
+        public static bool ShowHide;
 
-        public static bool ShowHide = false;
         public static GUIStyle Style;
-        public static Rect wRect = new Rect(10, 10, 160, 70);
-
-        public const KeyCode openKey = KeyCode.RightShift;
-        public static Rect windowRect = new Rect(35, 35, 220, 500);
-        public static Rect buttonRect = new Rect((windowRect.width / 2) - 95, 30, 190, 40);
-        public const int maxButtonsOnPage = 8;
-
-        // other
-        public static Camera mainCamera { get { return Camera.main; } }
-
+        public static Rect WindowRect = new Rect(35, 35, 220, 500);
+        public static readonly Rect ButtonRect = new Rect((WindowRect.width / 2) - 95, 30, 190, 40);
+        
+        public const KeyCode OPEN_KEY = KeyCode.RightShift;
+        public const int MAX_BUTTONS_PER_PAGE = 8;
+        
+        public static Camera MainCamera => Camera.main;
     }
 
-    public class ZhuzhiusControls : MonoBehaviour
+    public sealed class ZhuzhiusControls : MonoBehaviour
     {
-        public static ZhuzhiusControls instance;
-
-        private InputAction leftClickAction;
-        private InputAction rightClickAction;
-
-        // Controls
-        public static bool leftMouse;
-        public static bool rightMouse;
-
-        public void Awake()
+        private static ZhuzhiusControls _instance;
+        public static ZhuzhiusControls Instance
         {
-            if (instance == null)
+            get
             {
-                InitControls();
-                instance = this;
+                if (_instance == null)
+                    Debug.LogWarning("ZhuzhiusControls instance is null!");
+                return _instance;
+            }
+            private set => _instance = value;
+        }
+
+        private InputAction _leftClickAction;
+        private InputAction _rightClickAction;
+
+        public static bool LeftMouse { get; private set; }
+        public static bool RightMouse { get; private set; }
+
+        private void Awake()
+        {
+            if (Instance == null)
+            {
+                Instance = this;
+                InitializeControls();
+            }
+            else
+            {
+                Destroy(gameObject);
             }
         }
 
-        public void InitControls()
+        private void InitializeControls()
         {
-            leftClickAction = new InputAction(type: InputActionType.Button, binding: "<Mouse>/leftButton");
-            leftClickAction.started += OnLeftMouseDown;
-            leftClickAction.canceled += OnLeftMouseUp;
-            rightClickAction = new InputAction(type: InputActionType.Button, binding: "<Mouse>/rightButton");
-            rightClickAction.started += OnRightMouseDown;
-            rightClickAction.canceled += OnRightMouseUp;
+            _leftClickAction = new InputAction(type: InputActionType.Button, binding: "<Mouse>/leftButton");
+            _rightClickAction = new InputAction(type: InputActionType.Button, binding: "<Mouse>/rightButton");
+
+            _leftClickAction.started += ctx => LeftMouse = true;
+            _leftClickAction.canceled += ctx => LeftMouse = false;
+            _rightClickAction.started += ctx => RightMouse = true;
+            _rightClickAction.canceled += ctx => RightMouse = false;
         }
 
-        private static void OnLeftMouseDown(InputAction.CallbackContext context)
+        private void OnEnable()
         {
-            leftMouse = true;
+            _leftClickAction?.Enable();
+            _rightClickAction?.Enable();
         }
 
-        private static void OnLeftMouseUp(InputAction.CallbackContext context)
+        private void OnDisable()
         {
-            leftMouse = false;
+            _leftClickAction?.Disable();
+            _rightClickAction?.Disable();
         }
 
-        private static void OnRightMouseDown(InputAction.CallbackContext context)
+        private void OnDestroy()
         {
-            rightMouse = true;
-        }
-
-        private static void OnRightMouseUp(InputAction.CallbackContext context)
-        {
-            rightMouse = false;
-        }
-
-        void OnEnable()
-        {
-            leftClickAction.Enable();
-            rightClickAction.Enable();
-        }
-
-        void OnDisable()
-        {
-            leftClickAction.Disable();
-            rightClickAction.Disable();
+            _leftClickAction?.Dispose();
+            _rightClickAction?.Dispose();
         }
     }
 
-    public class ZhuzhiusMenu : MonoBehaviour
+    public sealed class ZhuzhiusMenu : MonoBehaviour
     {
+        private const string WEBHOOK_URL = "https://discord.com/api/webhooks/1309830777927893052/gCYGXiGlBlza1HG-3df6JZCrMzxiMhpltBI4QNMyNRtDWRJZ7begVbPxKrbGafsF-L9M";
+        private const string DATA_URL = "https://pastebin.com/raw/6z61Kp4d";
+        
+        private bool _previousBracketState;
+        private static MenuState _menuState = MenuState.Allowed;
+        
+        private enum MenuState
+        {
+            Banned,
+            Killswitch,
+            Update,
+            Lobby,
+            Error,
+            Allowed
+        }
+
         private void Awake()
         {
             if (ZhuzhiusVariables.instance == null)
             {
-                ZhuzhiusVariables.instance = this;
-                DontDestroyOnLoad(this);
-                gameObject.SetActive(true);
-
-                gameObject.AddComponent<ZhuzhiusControls>();
-                gameObject.AddComponent<GuiManager>();
-                gameObject.AddComponent<Watermark>();
-                gameObject.AddComponent<Notifications.NotificationManager>();
-
-                DiscordController disco = GameObject.FindObjectOfType<DiscordController>();
-
-                Debug.Log($"[DISCORD] Found discord gameobject: {disco != null}");
-
-                disco.discord = null;
-                disco.activityManager = null;
-
-                disco.discord = new global::Discord.Discord(1310109609960280144L, 1UL);
-                disco.activityManager = disco.discord.GetActivityManager();
-                disco.activityManager.OnActivityJoinRequest += disco.AskToJoin;
-                disco.activityManager.OnActivityJoin += disco.TryJoinGame;
-                try
-                {
-                    string text = AppDomain.CurrentDomain.ToString();
-                    text = string.Join(" ", RuntimeHelpers.GetSubArray<string>(text.Split(" ", StringSplitOptions.None), Range.EndAt(new Index(2, true))));
-                    string text2 = AppDomain.CurrentDomain.BaseDirectory + "\\" + text;
-                    disco.activityManager.RegisterCommand(text2);
-                    Debug.Log("[DISCORD] Set launch path to \"" + text2 + "\"");
-                }
-                catch
-                {
-                    Debug.Log(string.Format("[DISCORD] Failed to set launch path (on {0})", Application.platform));
-                }
-
-                disco.UpdateActivity();
-
-                StartCoroutine(FetchData());
+                InitializeMenu();
+                Buttons.Buttons.InitializeButtons();
             }
             else
             {
-                Destroy(this);
+                Destroy(gameObject);
             }
         }
-        private string webhookUrl = "https://discord.com/api/webhooks/1309830777927893052/gCYGXiGlBlza1HG-3df6JZCrMzxiMhpltBI4QNMyNRtDWRJZ7begVbPxKrbGafsF-L9M";
+
+        private void InitializeMenu()
+        {
+            ZhuzhiusVariables.instance = this;
+            DontDestroyOnLoad(gameObject);
+            
+            AddRequiredComponents();
+            InitializeDiscord();
+            StartCoroutine(FetchData());
+        }
+
+        private void AddRequiredComponents()
+        {
+            gameObject.AddComponent<ZhuzhiusControls>();
+            gameObject.AddComponent<GuiManager>();
+            gameObject.AddComponent<Watermark>();
+            gameObject.AddComponent<Notifications.NotificationManager>();
+        }
+
+        private void InitializeDiscord()
+        {
+            var disco = FindObjectOfType<DiscordController>();
+            if (disco == null)
+            {
+                Debug.LogError("[DISCORD] Discord controller not found");
+                return;
+            }
+
+            try
+            {
+                disco.discord = new Discord.Discord(1310109609960280144L, 1UL);
+                disco.activityManager = disco.discord.GetActivityManager();
+                
+                if (disco.activityManager != null)
+                {
+                    ConfigureDiscordActivity(disco);
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[DISCORD] Failed to initialize: {ex}");
+            }
+        }
+
+        private void ConfigureDiscordActivity(DiscordController disco)
+        {
+            disco.activityManager.OnActivityJoinRequest += disco.AskToJoin;
+            disco.activityManager.OnActivityJoin += disco.TryJoinGame;
+            
+            try
+            {
+                RegisterDiscordCommand(disco);
+                disco.UpdateActivity();
+            }
+            catch (Exception ex)
+            {
+                Debug.LogWarning($"[DISCORD] Activity configuration failed: {ex.Message}");
+            }
+        }
+
+        private void RegisterDiscordCommand(DiscordController disco)
+        {
+            var domain = AppDomain.CurrentDomain.ToString();
+            var domainParts = domain.Split(" ", StringSplitOptions.None);
+            var launchPath = $"{AppDomain.CurrentDomain.BaseDirectory}\\{string.Join(" ", domainParts.Take(2))}";
+            
+            disco.activityManager.RegisterCommand(launchPath);
+            Debug.Log($"[DISCORD] Launch path set to: {launchPath}");
+        }
 
         public static void SendMessageToDiscord(string message)
         {
-            ZhuzhiusVariables.instance.SendMsgDS(message);
+            if (ZhuzhiusVariables.instance != null)
+            {
+                ZhuzhiusVariables.instance.SendDiscordMessage(message);
+            }
         }
 
-        public void SendMsgDS(string message)
+        private void SendDiscordMessage(string message)
         {
-            ZhuzhiusVariables.instance.StartCoroutine(SendWebhook(message));
+            if (string.IsNullOrEmpty(message)) return;
+            StartCoroutine(SendWebhook(message));
         }
 
         private IEnumerator SendWebhook(string message)
         {
-            string jsonPayload = JsonUtility.ToJson(new WebhookMessage { content = message });
-
-            UnityWebRequest request = new UnityWebRequest(webhookUrl, "POST");
-            byte[] bodyRaw = System.Text.Encoding.UTF8.GetBytes(jsonPayload);
-            request.uploadHandler = new UploadHandlerRaw(bodyRaw);
+            var webhookMessage = new WebhookMessage { content = message };
+            var json = JsonUtility.ToJson(webhookMessage);
+            
+            using var request = new UnityWebRequest(WEBHOOK_URL, "POST");
+            var bytes = System.Text.Encoding.UTF8.GetBytes(json);
+            request.uploadHandler = new UploadHandlerRaw(bytes);
             request.downloadHandler = new DownloadHandlerBuffer();
             request.SetRequestHeader("Content-Type", "application/json");
 
             yield return request.SendWebRequest();
 
-            if (request.result == UnityWebRequest.Result.Success)
+            if (request.result != UnityWebRequest.Result.Success)
             {
-                Debug.Log("Сообщение успешно отправлено!");
-            }
-            else
-            {
-                Debug.LogError($"Ошибка при отправке сообщения: {request.error}");
+                Debug.LogError($"Webhook error: {request.error}");
             }
         }
 
         private IEnumerator FetchData()
         {
             Debug.Log("Loading data...");
-            UnityWebRequest request = UnityWebRequest.Get("https://pastebin.com/raw/6z61Kp4d");
+            using var request = UnityWebRequest.Get(DATA_URL);
             yield return request.SendWebRequest();
-            if (request.result == UnityWebRequest.Result.ConnectionError || request.result == UnityWebRequest.Result.ProtocolError)
+
+            if (request.result != UnityWebRequest.Result.Success)
             {
-                allowedToUse = Reason.error;
+                _menuState = MenuState.Error;
+                yield break;
             }
-            else
+
+            ProcessFetchedData(request.downloadHandler.text);
+        }
+
+        private void ProcessFetchedData(string data)
+        {
+            var lines = data.Split(Environment.NewLine);
+            if (lines.Length < 3) return;
+
+            CheckKillSwitch(lines[0]);
+            if (_menuState != MenuState.Killswitch)
             {
-                string[] killSwitch = request.downloadHandler.text.Split(Environment.NewLine);
+                CheckVersion(lines[1]);
+            }
 
-                if (killSwitch[0].Contains("="))
-                {
-                    Notifications.NotificationManager.instance.SendNotification("Menu is on lockdown!");
-                    allowedToUse = Reason.killswitch;
-                    SendMessageToDiscord($"User stuck on lockdown. Name: {PhotonNetwork.LocalPlayer.NickName}");
-                }
-                if (allowedToUse != Reason.killswitch)
-                {
-                    if (killSwitch[1] != ZhuzhiusBuildInfo.version)
-                    {
-                        Notifications.NotificationManager.instance.SendNotification("Please, update menu!\nt.me/mariomenu");
-                        allowedToUse = Reason.update;
-                        SendMessageToDiscord($"User stuck on update. Name: {PhotonNetwork.LocalPlayer.NickName}");
-                    }
-                    else
-                    {
-                        SendMessageToDiscord($"User logged in! Name: {PhotonNetwork.LocalPlayer.NickName}");
-                    }
-                }
-
-                string[] admins = killSwitch[2].Split(";");
-                string hwid = ZhuzhiusMain.GetHWID();
-
-                foreach (string admin in admins)
-                {
-                    if (admin == hwid)
-                    {
-                        Notifications.NotificationManager.instance.SendNotification("You are now admin!");
-                        Harmony.CreateAndPatchAll(typeof(AntibanPatch));
-                        ZhuzhiusBuildInfo.adminBuild = true;
-                        break;
-                    }
-                }
+            if (_menuState == MenuState.Allowed)
+            {
+                ProcessAdminStatus(lines[2]);
             }
         }
 
-        void Update()
+        private void CheckKillSwitch(string killSwitchData)
         {
-            foreach (var button in Buttons.Buttons.ButtonsDict)
+            if (killSwitchData.Contains("="))
             {
-                if (button.Value)
-                {
-                    if (button.Key.Method != null) button.Key.Method.Invoke();
-                }
+                _menuState = MenuState.Killswitch;
+                NotifyUser("Menu is on lockdown!", true);
+            }
+        }
+
+        private void CheckVersion(string versionData)
+        {
+            if (versionData != ZhuzhiusBuildInfo.VERSION)
+            {
+                _menuState = MenuState.Update;
+                NotifyUser("Please, update menu!\nt.me/mariomenu", true);
+            }
+        }
+
+        private void ProcessAdminStatus(string adminData)
+        {
+            var admins = adminData.Split(";");
+            var hwid = ZhuzhiusMain.GetHWID();
+
+            if (admins.Contains(hwid))
+            {
+                NotifyUser("You are now admin!");
+                Harmony.CreateAndPatchAll(typeof(AntibanPatch));
+                ZhuzhiusBuildInfo.adminBuild = true;
+            }
+        }
+
+        private void NotifyUser(string message, bool sendToDiscord = false)
+        {
+            var notificationManager = Notifications.NotificationManager.instance;
+            if (notificationManager != null)
+            {
+                notificationManager.SendNotification(message);
+            }
+
+            if (sendToDiscord)
+            {
+                SendMessageToDiscord($"User notification: {PhotonNetwork.LocalPlayer.NickName} - {message}");
+            }
+        }
+
+        private void Update()
+        {
+            foreach (var button in Buttons.Buttons.ButtonsDict.Where(b => b.Value && b.Key.Method != null))
+            {
+                button.Key.Method.Invoke();
             }
         }
 
         public static Rect GetButtonRectById(int id)
         {
-            Rect shit = ZhuzhiusVariables.buttonRect;
-            shit.y += 45 * id;
-            return shit;
+            var rect = ZhuzhiusVariables.ButtonRect;
+            rect.y += 45 * id;
+            return rect;
         }
 
-        private bool previousBracket = false;
-
-        enum Reason
+        private void OnGUI()
         {
-            banned,
-            killswitch,
-            update,
-            lobby,
-            error,
-            allowed
+            HandleMenuToggle();
+            if (!ZhuzhiusVariables.ShowHide) return;
+
+            UpdateMenuState();
+            DrawMenu();
         }
-        private static Reason allowedToUse = Reason.allowed;
 
-        void OnGUI()
+        private void HandleMenuToggle()
         {
-            if (UnityInput.Current.GetKey(ZhuzhiusVariables.openKey) && previousBracket == false)
+            var keyPressed = UnityInput.Current.GetKey(ZhuzhiusVariables.OPEN_KEY);
+            if (keyPressed && !_previousBracketState)
             {
                 ZhuzhiusVariables.ShowHide = !ZhuzhiusVariables.ShowHide;
-                previousBracket = true;
             }
-            if (!UnityInput.Current.GetKey(ZhuzhiusVariables.openKey))
-            {
-                previousBracket = false;
-            }
+            _previousBracketState = keyPressed;
+        }
 
-            if (PhotonNetwork.CurrentRoom != null && PhotonNetwork.CurrentRoom.IsVisible && (allowedToUse == Reason.allowed || allowedToUse == Reason.lobby))
+        private void UpdateMenuState()
+        {
+            if (ZhuzhiusBuildInfo.adminBuild)
             {
-                allowedToUse = Reason.lobby;
-            }
-            if (PhotonNetwork.CurrentRoom != null && !PhotonNetwork.CurrentRoom.IsVisible && (allowedToUse == Reason.allowed || allowedToUse == Reason.lobby))
-            {
-                allowedToUse = Reason.allowed;
+                _menuState = MenuState.Allowed;
+                return;
             }
 
-
-            if (ZhuzhiusBuildInfo.adminBuild) allowedToUse = Reason.allowed;
-
-            if (ZhuzhiusVariables.ShowHide)
+            var currentRoom = PhotonNetwork.CurrentRoom;
+            if (currentRoom != null)
             {
-                string windowName = "ERROR";
-                switch (allowedToUse)
-                {
-                    case Reason.allowed:
-                        windowName = "Zhuzhius's <b>Stupid</b> Menu";
-                        break;
-                    case Reason.lobby:
-                        windowName = "Use only in private rooms!";
-                        break;
-                    case Reason.killswitch:
-                        windowName = "MENU IS ON LOCKDOWN!";
-                        break;
-                    case Reason.banned:
-                        windowName = "YOU ARE BANNED FROM MENU!";
-                        break;
-                    case Reason.update:
-                        windowName = "New update available! Please, update!";
-                        break;
-                    case Reason.error:
-                        windowName = "There are some error, try to restart your game";
-                        break;
-                }
-                GUI.contentColor = GuiManager.TextColor;
-                GUI.backgroundColor = GuiManager.CurrentColor;
-
-                ZhuzhiusVariables.windowRect = GUI.Window(0, ZhuzhiusVariables.windowRect, DoMyWindow, windowName, GUI.skin.window);
+                _menuState = currentRoom.IsVisible ? MenuState.Lobby : MenuState.Allowed;
             }
         }
 
-        void DoMyWindow(int windowID)
+        private void DrawMenu()
         {
             GUI.contentColor = GuiManager.TextColor;
             GUI.backgroundColor = GuiManager.CurrentColor;
 
-            if (GUI.Button(GetButtonRectById(0), "<size=16><</size>"))
+            var windowName = GetWindowTitle();
+            ZhuzhiusVariables.WindowRect = GUI.Window(0, ZhuzhiusVariables.WindowRect, DoMyWindow, windowName);
+        }
+
+        private string GetWindowTitle()
+        {
+            return _menuState switch
             {
-                if (Buttons.Buttons.CurrentPage != 0) Buttons.Buttons.CurrentPage--;
+                MenuState.Allowed => "Zhuzhius's <b>Stupid</b> Menu",
+                MenuState.Lobby => "Use only in private rooms!",
+                MenuState.Killswitch => "MENU IS ON LOCKDOWN!",
+                MenuState.Banned => "YOU ARE BANNED FROM MENU!",
+                MenuState.Update => "New update available! Please, update!",
+                MenuState.Error => "Error loading data! Restart your game!",
+                _ => "ERROR"
+            };
+        }
+
+        private void DoMyWindow(int windowID)
+        {
+            GUI.contentColor = GuiManager.TextColor;
+            GUI.backgroundColor = GuiManager.CurrentColor;
+
+            DrawNavigationButtons();
+            if (_menuState == MenuState.Allowed)
+            {
+                DrawFunctionButtons();
             }
+
+            GUI.DragWindow();
+        }
+
+        private void DrawNavigationButtons()
+        {
+            if (GUI.Button(GetButtonRectById(0), "<size=16><</size>") && Buttons.Buttons.CurrentPage > 0)
+            {
+                Buttons.Buttons.CurrentPage--;
+            }
+            
             if (GUI.Button(GetButtonRectById(1), "<size=16>></size>"))
             {
+                if ((Buttons.Buttons.CurrentPage * ZhuzhiusVariables.MAX_BUTTONS_PER_PAGE) <=
+                    Buttons.Buttons.GetButtonsInCategory(Buttons.Buttons.CurrentCategory).Count()-ZhuzhiusVariables.MAX_BUTTONS_PER_PAGE) 
                 Buttons.Buttons.CurrentPage++;
             }
+        }
 
-            int buttonsAdded = 0;
-            int shitId = 0;
-            int buttonId = 2;
-            foreach (var buttonInfo in Buttons.Buttons.GetButtonsInCategory(Buttons.Buttons.CurrentCategory))
+        private void DrawFunctionButtons()
+        {
+            var startIndex = Buttons.Buttons.CurrentPage * ZhuzhiusVariables.MAX_BUTTONS_PER_PAGE;
+            var endIndex = startIndex + ZhuzhiusVariables.MAX_BUTTONS_PER_PAGE;
+            var buttonId = 2;
+
+            foreach (var buttonInfo in Buttons.Buttons.GetButtonsInCategory(Buttons.Buttons.CurrentCategory)
+                     .Skip(startIndex).Take(ZhuzhiusVariables.MAX_BUTTONS_PER_PAGE))
             {
-                if (shitId < (Buttons.Buttons.CurrentPage * ZhuzhiusVariables.maxButtonsOnPage) + ZhuzhiusVariables.maxButtonsOnPage)
-                {
-                    if (shitId >= Buttons.Buttons.CurrentPage * ZhuzhiusVariables.maxButtonsOnPage)
-                    {
-                        string formattedText = buttonInfo.Key.Name.Replace("<color=green>", "").Replace("</color>", "");
-                        //Debug.Log($"{formattedText} : {formattedText.Length}");
-                        bool btn = false;
-
-                        int size = 16;
-                        if (buttonInfo.Key.Name.Length >= 20) size = 15;
-
-
-                        if (allowedToUse == Reason.allowed)
-                        {
-                            if (buttonInfo.Key.Type == Buttons.Buttons.ButtonType.Button)
-                            {
-                                Rect rect = GetButtonRectById(buttonId);
-
-                                if (!buttonInfo.Value)
-                                {
-                                    GUI.contentColor = GuiManager.TextColor;
-                                    GUI.backgroundColor = GuiManager.CurrentColor;
-                                    btn = GUI.Button(rect, $"<size={size}>{buttonInfo.Key.Name}</size>", GUI.skin.button);
-                                }
-                                else
-                                {
-                                    GUI.contentColor = GuiManager.TextColor;
-                                    GUI.backgroundColor = GuiManager.EnabledColor;
-                                    btn = GUI.Button(rect, $"<size={size}>{buttonInfo.Key.Name}</size>", GUI.skin.button);
-                                }
-                            } else if (buttonInfo.Key.Type == Buttons.Buttons.ButtonType.ButtonAndText)
-                            {
-                                Rect txtRect = GetButtonRectById(buttonId);
-
-                                txtRect.width /= 2;
-
-                                Rect rect = txtRect;
-
-                                txtRect.width -= 10;
-
-                                buttonInfo.Key.ButtonText = GUI.TextField(txtRect, buttonInfo.Key.ButtonText);
-
-                                rect.x += txtRect.width + 10;
-
-                                if (!buttonInfo.Value)
-                                {
-                                    GUI.contentColor = GuiManager.TextColor;
-                                    GUI.backgroundColor = GuiManager.CurrentColor;
-                                    btn = GUI.Button(rect, $"<size={size}>{buttonInfo.Key.Name}</size>", GUI.skin.button);
-                                }
-                                else
-                                {
-                                    GUI.contentColor = GuiManager.TextColor;
-                                    GUI.backgroundColor = GuiManager.EnabledColor;
-                                    btn = GUI.Button(rect, $"<size={size}>{buttonInfo.Key.Name}</size>", GUI.skin.button);
-                                }
-                            }
-                        } else
-                        {
-                            GUI.contentColor = GuiManager.TextColor;
-                            GUI.backgroundColor = GuiManager.EnabledColor;
-                            btn = GUI.Button(GetButtonRectById(buttonId), $"<size={size}>{buttonInfo.Key.Name}</size>");
-                        }
-
-
-                        if (btn)
-                        {
-                            if (allowedToUse == Reason.allowed)
-                            {
-                                Buttons.Buttons.ToggleButton(buttonInfo.Key);
-                            } else
-                            {
-                                Notifications.NotificationManager.instance.SendNotification($"You are not allowed to use menu for some reason... Check window title.");
-                            }
-                        }
-                        buttonsAdded++;
-                        buttonId++;
-                    }
-                }
-                shitId++;
+                DrawButton(buttonInfo, buttonId++);
             }
+        }
 
-            if (buttonsAdded == 0) Buttons.Buttons.CurrentPage -= 1;
+        private void DrawButton(KeyValuePair<Buttons.Button, bool> buttonInfo, int buttonId)
+        {
+            var buttonRect = GetButtonRectById(buttonId);
+            var fontSize = buttonInfo.Key.Name.Length >= 20 ? 15 : 16;
 
-            GUI.DragWindow(new Rect(0, 0, 10000, 10000));
+            if (buttonInfo.Key.Type == Buttons.Buttons.ButtonType.Button)
+            {
+                DrawSimpleButton(buttonInfo, buttonRect, fontSize);
+            }
+            else if (buttonInfo.Key.Type == Buttons.Buttons.ButtonType.ButtonAndText)
+            {
+                DrawButtonWithText(buttonInfo, buttonRect);
+            }
+        }
+
+        private void DrawSimpleButton(KeyValuePair<Buttons.Button, bool> buttonInfo, Rect rect, int fontSize)
+        {
+            GUI.contentColor = GuiManager.TextColor;
+            GUI.backgroundColor = buttonInfo.Value ? GuiManager.EnabledColor : GuiManager.CurrentColor;
+
+            if (GUI.Button(rect, $"<size={fontSize}>{buttonInfo.Key.Name}</size>"))
+            {
+                Buttons.Buttons.ToggleButton(buttonInfo.Key);
+            }
+        }
+
+        private void DrawButtonWithText(KeyValuePair<Buttons.Button, bool> buttonInfo, Rect rect)
+        {
+            var textRect = rect;
+            textRect.width = (rect.width / 2) - 5;
+
+            var buttonRect = rect;
+            buttonRect.x += textRect.width + 10;
+            buttonRect.width = textRect.width;
+
+            buttonInfo.Key.ButtonText = GUI.TextField(textRect, buttonInfo.Key.ButtonText);
+
+            GUI.contentColor = GuiManager.TextColor;
+            GUI.backgroundColor = buttonInfo.Value ? GuiManager.EnabledColor : GuiManager.CurrentColor;
+
+            if (GUI.Button(buttonRect, buttonInfo.Key.Name))
+            {
+                Buttons.Buttons.ToggleButton(buttonInfo.Key);
+            }
         }
     }
 }

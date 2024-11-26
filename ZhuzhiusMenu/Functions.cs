@@ -43,10 +43,10 @@ namespace Zhuzhius
 
         public static GameObject GetClick()
         {
-            if (!ZhuzhiusControls.leftMouse) return null;
+            if (!ZhuzhiusControls.LeftMouse) return null;
 
             var mousePosition = Mouse.current.position.ReadValue();
-            var worldPosition = ZhuzhiusVariables.mainCamera.ScreenToWorldPoint(mousePosition);
+            var worldPosition = ZhuzhiusVariables.MainCamera.ScreenToWorldPoint(mousePosition);
             worldPosition.z = 0;
 
             var hit = Physics2D.Raycast(worldPosition, Vector2.zero);
@@ -440,11 +440,11 @@ namespace Zhuzhius
                 return;
             }
 
-            if (ZhuzhiusControls.leftMouse && !_previousMouse)
+            if (ZhuzhiusControls.LeftMouse && !_previousMouse)
             {
                 _previousMouse = true;
                 var mousePosition = Mouse.current.position.ReadValue();
-                var worldPosition = ZhuzhiusVariables.mainCamera.ScreenToWorldPoint(mousePosition);
+                var worldPosition = ZhuzhiusVariables.MainCamera.ScreenToWorldPoint(mousePosition);
                 worldPosition.z = 0;
                 var hit = Physics2D.Raycast(worldPosition, Vector2.zero);
                 if (hit.collider != null)
@@ -457,15 +457,15 @@ namespace Zhuzhius
                 }
             }
 
-            if (ZhuzhiusControls.leftMouse && _previousMouse && _selectedObject != null)
+            if (ZhuzhiusControls.LeftMouse && _previousMouse && _selectedObject != null)
             {
                 var mousePosition = Mouse.current.position.ReadValue();
-                var worldPosition = ZhuzhiusVariables.mainCamera.ScreenToWorldPoint(mousePosition);
+                var worldPosition = ZhuzhiusVariables.MainCamera.ScreenToWorldPoint(mousePosition);
                 worldPosition.z = 0;
                 _selectedObject.transform.position = worldPosition;
             }
 
-            if (!ZhuzhiusControls.leftMouse && _previousMouse)
+            if (!ZhuzhiusControls.LeftMouse && _previousMouse)
             {
                 _previousMouse = false;
                 _selectedObject = null;
@@ -482,10 +482,10 @@ namespace Zhuzhius
                 return;
             }
 
-            if (ZhuzhiusControls.leftMouse)
+            if (ZhuzhiusControls.LeftMouse)
             {
                 var tilemap = GameManager.Instance.tilemap;
-                var mouseWorldPos = ZhuzhiusVariables.mainCamera.ScreenToWorldPoint(Mouse.current.position.ReadValue());
+                var mouseWorldPos = ZhuzhiusVariables.MainCamera.ScreenToWorldPoint(Mouse.current.position.ReadValue());
                 var tilePosition = tilemap.WorldToCell(mouseWorldPos);
                 var PlacetilePosition = Vector3Int.FloorToInt(tilePosition);
                 var paramaters = new object[] { tilePosition.x, tilePosition.y, 1, 1, new string[] { "SpecialTiles/QuestionCoin" } };
@@ -497,7 +497,7 @@ namespace Zhuzhius
                 GameManager.Instance.SendAndExecuteEvent(Enums.NetEventIds.SetTileBatch, paramaters, SendOptions.SendReliable, options);
             }
 
-            if (ZhuzhiusControls.rightMouse)
+            if (ZhuzhiusControls.RightMouse)
             {
                 var tilemap = GameManager.Instance.tilemap;
                 var mouseWorldPos = Camera.main.ScreenToWorldPoint(Mouse.current.position.ReadValue());
@@ -517,10 +517,10 @@ namespace Zhuzhius
         #region Interact Tile
         public static void InteractTile()
         {
-            if (ZhuzhiusControls.leftMouse)
+            if (ZhuzhiusControls.LeftMouse)
             {
                 var tilemap = GameManager.Instance.tilemap;
-                var mouseWorldPos = ZhuzhiusVariables.mainCamera.ScreenToWorldPoint(Mouse.current.position.ReadValue());
+                var mouseWorldPos = ZhuzhiusVariables.MainCamera.ScreenToWorldPoint(Mouse.current.position.ReadValue());
                 var tilePosition = tilemap.WorldToCell(mouseWorldPos);
                 var GetTilePosition = Vector3Int.FloorToInt(tilePosition);
                 var tile = GameManager.Instance.tilemap.GetTile(GetTilePosition);
