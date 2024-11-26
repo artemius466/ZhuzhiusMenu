@@ -129,30 +129,6 @@ namespace Zhuzhius
                 GUI.DrawTexture(pos, _icon);
                 GUI.matrix = matrix;
             }
-
-            DrawButtons();
-        }
-
-        private void DrawButtons()
-        {
-            int i = 0;
-            foreach (var buttonInfo in Buttons.Buttons.ButtonsDict)
-            {
-                if (buttonInfo.Value)
-                {
-                    string functionName = buttonInfo.Key.Name.Replace("<color=green>", "").Replace("</color>", "").Replace("<color=red>", "");
-                    int sizex = 13 * functionName.Length;
-
-                    GUI.color = new Color32(30, 30, 30, 100);
-                    GUI.Box(new Rect(Screen.width - sizex, 20*i, sizex, 20), "", _customStyle);
-
-                    GUI.color = GuiManager.CurrentColor;
-                    GUI.Box(new Rect(Screen.width - 5, 20 * i, 5, 20), "", _customStyle);
-
-                    GUI.Label(new Rect(Screen.width - sizex + 5, 20 * i, 3200, 3200), functionName, GuiManager.SmallTextStyle);
-                    i++;
-                }
-            }
         }
     }
 }
