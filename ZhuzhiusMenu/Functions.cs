@@ -1,260 +1,893 @@
-﻿using ExitGames.Client.Photon;
+using ExitGames.Client.Photon;
 using NSMB.Utils;
 using Photon.Pun;
 using Photon.Realtime;
-using System.Collections;
 using System;
+using System.Collections;
 using System.Collections.Generic;
-using System.Linq;
-using System.Text.RegularExpressions;
-using TMPro;
 using UnityEngine;
-using UnityEngine.EventSystems;
-using UnityEngine.SceneManagement;
-using UnityEngine.UI;
 using UnityEngine.InputSystem;
+using UnityEngine.SceneManagement;
 using UnityEngine.Tilemaps;
-using Zhuzhius.Buttons;
-using HarmonyLib;
-using static System.Net.Mime.MediaTypeNames;
+using System.Linq;
 
 namespace Zhuzhius
 {
     public static class Functions
     {
+        #region Constants
+        private const float NORMAL_GRAVITY = 3.25f;
+        private const float KOYOTE_TIME = 0.06f;
+        private const float LINE_WIDTH = 0.05f;
+        private const float LINE_DURATION = 0.01f;
+        #endregion
+
+        #region Static Fields
+        private static bool _previousMouse;
+        private static GameObject _selectedObject;
+        private static bool _asd;
+        public static bool _crashing;
+        private static int _currentPing;
+        private static bool _changePing;
+        public static bool _changePingCoroutineStarted;
+        public static bool _returnHost;
+        #endregion
+
+        #region Player Management
         public static PhotonView GetPhotonViewByPlayer(Player player)
         {
-            foreach (PhotonView view in GameObject.FindObjectsOfType<PhotonView>())
-            {
-                if (view.OwnerActorNr == player.ActorNumber)
-                {
-                    return view;
-                }
-            }
-
-            return null;
+            if (player == null) return null;
+            return GameObject.FindObjectsOfType<PhotonView>()
+                           .FirstOrDefault(view => view.OwnerActorNr == player.ActorNumber);
         }
 
         public static GameObject GetClick()
         {
-            if (ZhuzhiusControls.leftMouse)
-            {
-                Vector2 mousePosition = Mouse.current.position.ReadValue();
-                Vector3 worldPosition = ZhuzhiusVariables.mainCamera.ScreenToWorldPoint(mousePosition);
+            if (!ZhuzhiusControls.leftMouse) return null;
 
-                worldPosition.z = 0;
-                RaycastHit2D hit = Physics2D.Raycast(worldPosition, Vector2.zero);
-                return hit.collider.gameObject;
-            }
-            else
+            var mousePosition = Mouse.current.position.ReadValue();
+            var worldPosition = ZhuzhiusVariables.mainCamera.ScreenToWorldPoint(mousePosition);
+            worldPosition.z = 0;
+
+            var hit = Physics2D.Raycast(worldPosition, Vector2.zero);
+            return hit.collider?.gameObject;
+        }
+        #endregion
+
+        #region Visual Effects
+        public static void Tracers()
+        {
+            if (GameManager.Instance?.localPlayer == null) return;
+
+            foreach (var player in GameManager.Instance.players)
             {
-                return null;
+                if (player == GameManager.Instance.localPlayer) continue;
+                CreateTracerLine(player);
             }
         }
 
-        public static void Tracers()
+        private static void CreateTracerLine(PlayerController targetPlayer)
         {
-            float lineWidth = 0.05f;
-            foreach (PlayerController player in GameManager.Instance.players)
+            try
             {
-                if (player != GameManager.Instance.localPlayer)
-                {
-                    try
-                    {
-                        //UnityEngine.Object.Destroy(line);
-                        GameObject line = new GameObject("Line");
-                        LineRenderer liner = line.AddComponent<LineRenderer>();
-                        UnityEngine.Color thecolor = GuiManager.enabledColor;
-                        UnityEngine.Color thecolor2 = GuiManager.textColor;
+                var line = new GameObject("TracerLine");
+                var liner = line.AddComponent<LineRenderer>();
+                ConfigureLineRenderer(liner);
+                SetLinePositions(liner, targetPlayer);
+                ZhuzhiusVariables.instance.StartCoroutine(DeleteLine(line));
+            }
+            catch (Exception e)
+            {
+                Debug.LogError($"Error creating tracer line: {e.Message}");
+                CleanupAllLines();
+            }
+        }
 
-                        thecolor.a -= 100;
+        private static void ConfigureLineRenderer(LineRenderer liner)
+        {
+            var startColor = GuiManager.EnabledColor;
+            startColor.a -= 100;
+            
+            liner.startColor = startColor;
+            liner.endColor = GuiManager.TextColor;
+            liner.startWidth = LINE_WIDTH - 0.03f;
+            liner.endWidth = LINE_WIDTH;
+            liner.positionCount = 2;
+            liner.useWorldSpace = true;
+        }
 
-                        liner.startColor = thecolor; liner.endColor = thecolor2; liner.startWidth = lineWidth-0.03f; liner.endWidth = lineWidth; liner.positionCount = 2; liner.useWorldSpace = true;
-                        liner.SetPosition(0, GameManager.Instance.localPlayer.transform.position);
-                        liner.SetPosition(1, player.transform.position);
+        private static void SetLinePositions(LineRenderer liner, PlayerController targetPlayer)
+        {
+            liner.SetPosition(0, GameManager.Instance.localPlayer.transform.position);
+            liner.SetPosition(1, targetPlayer.transform.position);
+        }
 
-
-                        ZhuzhiusVariables.instance.StartCoroutine(DeleteLine(line));
-                    }
-                    catch (Exception e)
-                    {
-                        foreach (var line1 in GameObject.FindObjectsOfType(typeof(LineRenderer)))
-                        {
-                            GameObject.Destroy(line1);
-                        }
-                    }
-                }
+        private static void CleanupAllLines()
+        {
+            var lines = GameObject.FindObjectsOfType<LineRenderer>();
+            foreach (var line in lines)
+            {
+                GameObject.Destroy(line.gameObject);
             }
         }
 
         private static IEnumerator DeleteLine(GameObject line)
         {
-            yield return new WaitForSecondsRealtime(0.01f);
+            yield return new WaitForSecondsRealtime(LINE_DURATION);
             UnityEngine.Object.Destroy(line);
-            
         }
+        #endregion
 
+        #region Navigation
         public static void OpenCategory(int category)
         {
-            Buttons.Buttons.category = category;
+            Buttons.Buttons.CurrentCategory = category;
         }
+        #endregion
 
-        public static void SpeedUp()
-        {
-            Time.timeScale *= 2;
-        }
-
-        public static void SlowDown()
-        {
-            Time.timeScale /= 2;
-        }
+        #region Game Control
+        public static void SpeedUp() => Time.timeScale *= 2;
+        public static void SlowDown() => Time.timeScale /= 2;
 
         public static void StaticPlayer()
         {
-            GameManager.Instance.localPlayer.GetComponent<PlayerController>().normalGravity = 0f;
-            GameManager.Instance.localPlayer.GetComponent<PlayerController>().body.velocity = Vector3.zero;
+            if (!GameManager.Instance?.localPlayer) return;
+            
+            var playerController = GameManager.Instance.localPlayer.GetComponent<PlayerController>();
+            if (playerController != null)
+            {
+                playerController.normalGravity = 0f;
+                playerController.body.velocity = Vector3.zero;
+            }
         }
+
         public static void NormalPlayer()
         {
-            GameManager.Instance.localPlayer.GetComponent<PlayerController>().normalGravity = 3.25f;
+            if (!GameManager.Instance?.localPlayer) return;
+            
+            var playerController = GameManager.Instance.localPlayer.GetComponent<PlayerController>();
+            if (playerController != null)
+            {
+                playerController.normalGravity = NORMAL_GRAVITY;
+            }
         }
 
         public static void AirJump()
         {
-            GameManager.Instance.localPlayer.GetComponent<PlayerController>().bounce = true;
-            GameManager.Instance.localPlayer.GetComponent<PlayerController>().onGround = true;
-            GameManager.Instance.localPlayer.GetComponent<PlayerController>().koyoteTime = 0.06f;
-            GameManager.Instance.localPlayer.GetComponent<PlayerController>().propeller = false;
-            GameManager.Instance.localPlayer.GetComponent<PlayerController>().startedSliding = false;
-            //GameManager.Instance.localPlayer
-            //UnityEngine.Debug.Log("YOOOO");
+            if (!GameManager.Instance?.localPlayer) return;
+            
+            var playerController = GameManager.Instance.localPlayer.GetComponent<PlayerController>();
+            if (playerController != null)
+            {
+                playerController.bounce = true;
+                playerController.onGround = true;
+                playerController.koyoteTime = KOYOTE_TIME;
+                playerController.propeller = false;
+                playerController.startedSliding = false;
+            }
         }
+        #endregion
 
-        // Overpowered
-        public static bool returnHost = false;
-
-        public static void ReturnHostEnable()
-        {
-            returnHost = true;
-        }
-
-        public static void ReturnHostDisable()
-        {
-            returnHost = false;
-        }
+        #region Host Management
+        public static void ReturnHostEnable() => _returnHost = true;
+        public static void ReturnHostDisable() => _returnHost = false;
 
         public static void SetMasterSelf()
         {
-            if (!PhotonNetwork.IsMasterClient)
+            if (!PhotonNetwork.InRoom)
             {
-                if (!ZhuzhiusVariables.SetOldMaster)
-                {
-                    ZhuzhiusVariables.OldMaster = PhotonNetwork.MasterClient;
-                    ZhuzhiusVariables.SetOldMaster = true;
-                }
-
-                Player target = PhotonNetwork.LocalPlayer;
-                PhotonNetwork.SetMasterClient(target);
-
-                Notifications.NotificationManager.instance.SendNotification("You are now host!");
+                Notifications.NotificationManager.instance?.SendError("Not in a room!");
+                return;
             }
-            else
+
+            if (PhotonNetwork.IsMasterClient)
             {
-                Notifications.NotificationManager.instance.SendError("You are already host!");
+                Notifications.NotificationManager.instance?.SendError("Already host!");
+                return;
             }
+
+            if (!ZhuzhiusVariables.SetOldMaster)
+            {
+                ZhuzhiusVariables.OldMaster = PhotonNetwork.MasterClient;
+                ZhuzhiusVariables.SetOldMaster = true;
+            }
+
+            PhotonNetwork.SetMasterClient(PhotonNetwork.LocalPlayer);
+            Notifications.NotificationManager.instance?.SendNotification("You are now host!");
         }
 
         public static IEnumerator ReturnMaster()
         {
             yield return new WaitForSecondsRealtime(0.2f);
-            PhotonNetwork.SetMasterClient(ZhuzhiusVariables.OldMaster);
-            ZhuzhiusVariables.SetOldMaster = false;
-            ZhuzhiusVariables.OldMaster = null;
+            if (ZhuzhiusVariables.OldMaster != null)
+            {
+                PhotonNetwork.SetMasterClient(ZhuzhiusVariables.OldMaster);
+                ZhuzhiusVariables.SetOldMaster = false;
+                ZhuzhiusVariables.OldMaster = null;
+            }
         }
+        #endregion
 
+        #region Kill All
         public static void KillAll()
         {
-            if (PhotonNetwork.IsMasterClient)
+            if (!PhotonNetwork.IsMasterClient)
             {
-                foreach (Player sigma in PhotonNetwork.PlayerListOthers)
-                {
-                    GetPhotonViewByPlayer(sigma).RPC("Death", RpcTarget.All, false, false);
-                }
-            } else
+                Notifications.NotificationManager.instance?.SendError("You are not host!");
+                return;
+            }
+
+            foreach (var player in PhotonNetwork.PlayerListOthers)
             {
-                Notifications.NotificationManager.instance.SendError("You are not host!");
+                GetPhotonViewByPlayer(player).RPC("Death", RpcTarget.All, false, false);
             }
         }
+        #endregion
 
+        #region Kill Gun
         public static void KillGun()
         {
-            if (PhotonNetwork.IsMasterClient)
+            if (!PhotonNetwork.IsMasterClient)
             {
-                GameObject target = GetClick();
+                Notifications.NotificationManager.instance?.SendError("You are not host!");
+                return;
+            }
 
-                if (target != null)
+            var target = GetClick();
+            if (target != null)
+            {
+                target.GetPhotonView().RPC("Death", RpcTarget.All, false, false);
+            }
+        }
+        #endregion
+
+        #region Instant Win
+        public static void InstantWin()
+        {
+            if (!PhotonNetwork.IsMasterClient)
+            {
+                Notifications.NotificationManager.instance?.SendError("You are not host!");
+                return;
+            }
+
+            PhotonNetwork.RaiseEvent(19, PhotonNetwork.LocalPlayer, NetworkUtils.EventAll, SendOptions.SendReliable);
+        }
+        #endregion
+
+        #region Instant Win Gun
+        public static void InstantWinGun()
+        {
+            if (!PhotonNetwork.IsMasterClient)
+            {
+                Notifications.NotificationManager.instance?.SendError("You are not host!");
+                return;
+            }
+
+            var target = GetClick();
+            if (target != null)
+            {
+                PhotonNetwork.RaiseEvent(19, target.GetPhotonView().Owner, NetworkUtils.EventAll, SendOptions.SendReliable);
+            }
+        }
+        #endregion
+
+        #region Spawn Star
+        public static void SpawnStar()
+        {
+            if (!PhotonNetwork.IsMasterClient)
+            {
+                Notifications.NotificationManager.instance?.SendError("You are not host!");
+                return;
+            }
+
+            var position = GameManager.Instance.localPlayer.transform.position + (GameManager.Instance.localPlayer.GetComponent<PlayerController>().facingRight ? Vector3.right : Vector3.left) + new Vector3(0, 0.2f, 0);
+            PhotonNetwork.InstantiateRoomObject("Prefabs/BigStar", position, Quaternion.identity);
+        }
+        #endregion
+
+        #region Kick All
+        public static void KickAll()
+        {
+            if (!PhotonNetwork.IsMasterClient)
+            {
+                Notifications.NotificationManager.instance?.SendError("You are not host!");
+                return;
+            }
+
+            PhotonNetwork.InstantiateRoomObject("Prefabs/Powerup/1-Up", new Vector3(0, 0, 0), Quaternion.identity);
+        }
+        #endregion
+
+        #region Destroy All
+        public static void DestroyAll()
+        {
+            if (!PhotonNetwork.IsMasterClient)
+            {
+                Notifications.NotificationManager.instance?.SendError("You are not host!");
+                return;
+            }
+
+            PhotonNetwork.DestroyAll();
+        }
+        #endregion
+
+        #region Random Instantiate Fireball
+        public static void RandomInstantiateFireball()
+        {
+            if (!PhotonNetwork.IsMasterClient)
+            {
+                Notifications.NotificationManager.instance?.SendError("You are not host!");
+                return;
+            }
+
+            var position = RandomPointOfPlayers();
+            PhotonNetwork.InstantiateRoomObject("Prefabs/Fireball", position, Quaternion.identity);
+        }
+        #endregion
+
+        #region Random Instantiate Iceball
+        public static void RandomInstantiateIceball()
+        {
+            if (!PhotonNetwork.IsMasterClient)
+            {
+                Notifications.NotificationManager.instance?.SendError("You are not host!");
+                return;
+            }
+
+            var position = RandomPointOfPlayers();
+            PhotonNetwork.InstantiateRoomObject("Prefabs/IceBall", position, Quaternion.identity);
+        }
+        #endregion
+
+        #region Random Instantiate Shit
+        public static void RandomInstantiateShit()
+        {
+            if (!PhotonNetwork.IsMasterClient)
+            {
+                Notifications.NotificationManager.instance?.SendError("You are not host!");
+                return;
+            }
+
+            var position = RandomPointOfPlayers();
+            PhotonNetwork.InstantiateRoomObject("Prefabs/Powerup/MegaMushroom", position, Quaternion.identity);
+            PhotonNetwork.InstantiateRoomObject("Prefabs/Powerup/FireFlower", position, Quaternion.identity);
+            PhotonNetwork.InstantiateRoomObject("Prefabs/Powerup/IceFlower", position, Quaternion.identity);
+            PhotonNetwork.InstantiateRoomObject("Prefabs/Powerup/PropellerMushroom", position, Quaternion.identity);
+            PhotonNetwork.InstantiateRoomObject("Prefabs/Powerup/Star", position, Quaternion.identity);
+        }
+        #endregion
+
+        #region Random Instantiate Enemies
+        public static void RandomInstantiateEnemies()
+        {
+            if (!PhotonNetwork.IsMasterClient)
+            {
+                Notifications.NotificationManager.instance?.SendError("You are not host!");
+                return;
+            }
+
+            var position = RandomPointOfPlayers();
+            PhotonNetwork.InstantiateRoomObject("Prefabs/Enemy/BlueKoopa", position, Quaternion.identity);
+            PhotonNetwork.InstantiateRoomObject("Prefabs/Enemy/Bobomb", position, Quaternion.identity);
+            PhotonNetwork.InstantiateRoomObject("Prefabs/Enemy/BulletBill", position, Quaternion.identity);
+            PhotonNetwork.InstantiateRoomObject("Prefabs/Enemy/Goomba", position, Quaternion.identity);
+            PhotonNetwork.InstantiateRoomObject("Prefabs/Enemy/Koopa", position, Quaternion.identity);
+            PhotonNetwork.InstantiateRoomObject("Prefabs/Enemy/PiranhaPlant", position, Quaternion.identity);
+            PhotonNetwork.InstantiateRoomObject("Prefabs/Enemy/RedKoopa", position, Quaternion.identity);
+            PhotonNetwork.InstantiateRoomObject("Prefabs/Enemy/Spiny", position, Quaternion.identity);
+        }
+        #endregion
+
+        #region Random Instantiate Coin
+        public static void RandomInstantiateCoin()
+        {
+            if (!PhotonNetwork.IsMasterClient)
+            {
+                Notifications.NotificationManager.instance?.SendError("You are not host!");
+                return;
+            }
+
+            var position = RandomPointOfPlayers();
+            PhotonNetwork.InstantiateRoomObject("Prefabs/LooseCoin", position, Quaternion.identity);
+        }
+        #endregion
+
+        #region Spawn Prefab In Player
+        public static int SpawnPrefabInPlayer(GameObject player, string prefab)
+        {
+            if (!PhotonNetwork.IsMasterClient)
+            {
+                return -1;
+            }
+
+            var obj = PhotonNetwork.InstantiateRoomObject(prefab, player.transform.position, Quaternion.identity);
+            return obj.GetPhotonView().ViewID;
+        }
+        #endregion
+
+        #region Freeze All
+        public static void FreezeAll()
+        {
+            if (!PhotonNetwork.IsMasterClient)
+            {
+                Notifications.NotificationManager.instance?.SendError("You are not host!");
+                return;
+            }
+
+            foreach (var player in GameManager.Instance.players)
+            {
+                var targetPos = player.transform.position;
+                targetPos.x -= 1;
+                targetPos.y += 1;
+                var coolPos = targetPos;
+
+                for (float i = 0.1f; i <= 1f; i += 0.1f)
                 {
-                    if (PhotonNetwork.IsMasterClient) target.GetPhotonView().RPC("Death", RpcTarget.All, false, false);
-                    else Notifications.NotificationManager.instance.SendError("You are not host!");
+                    coolPos = targetPos;
+                    PhotonNetwork.InstantiateRoomObject("Prefabs/IceBall", coolPos, Quaternion.identity);
+                    targetPos.x += i;
                 }
             }
         }
+        #endregion
 
-        public static void InstantWin()
+        #region Drag Objects
+        public static void DragObjects()
         {
+            if (!PhotonNetwork.IsMasterClient)
+            {
+                Notifications.NotificationManager.instance?.SendError("You are not host!");
+                return;
+            }
+
+            if (ZhuzhiusControls.leftMouse && !_previousMouse)
+            {
+                _previousMouse = true;
+                var mousePosition = Mouse.current.position.ReadValue();
+                var worldPosition = ZhuzhiusVariables.mainCamera.ScreenToWorldPoint(mousePosition);
+                worldPosition.z = 0;
+                var hit = Physics2D.Raycast(worldPosition, Vector2.zero);
+                if (hit.collider != null)
+                {
+                    _selectedObject = hit.collider.gameObject;
+                    if (_selectedObject.name == "Hitbox")
+                    {
+                        _selectedObject = hit.collider.gameObject.transform.parent.gameObject;
+                    }
+                }
+            }
+
+            if (ZhuzhiusControls.leftMouse && _previousMouse && _selectedObject != null)
+            {
+                var mousePosition = Mouse.current.position.ReadValue();
+                var worldPosition = ZhuzhiusVariables.mainCamera.ScreenToWorldPoint(mousePosition);
+                worldPosition.z = 0;
+                _selectedObject.transform.position = worldPosition;
+            }
+
+            if (!ZhuzhiusControls.leftMouse && _previousMouse)
+            {
+                _previousMouse = false;
+                _selectedObject = null;
+            }
+        }
+        #endregion
+
+        #region Minecraft Mode
+        public static void MinecraftMode()
+        {
+            if (!PhotonNetwork.IsMasterClient)
+            {
+                Notifications.NotificationManager.instance?.SendError("You are not host!");
+                return;
+            }
+
+            if (ZhuzhiusControls.leftMouse)
+            {
+                var tilemap = GameManager.Instance.tilemap;
+                var mouseWorldPos = ZhuzhiusVariables.mainCamera.ScreenToWorldPoint(Mouse.current.position.ReadValue());
+                var tilePosition = tilemap.WorldToCell(mouseWorldPos);
+                var PlacetilePosition = Vector3Int.FloorToInt(tilePosition);
+                var paramaters = new object[] { tilePosition.x, tilePosition.y, 1, 1, new string[] { "SpecialTiles/QuestionCoin" } };
+                var options = new RaiseEventOptions
+                {
+                    Receivers = ReceiverGroup.Others,
+                    CachingOption = EventCaching.AddToRoomCache
+                };
+                GameManager.Instance.SendAndExecuteEvent(Enums.NetEventIds.SetTileBatch, paramaters, SendOptions.SendReliable, options);
+            }
+
+            if (ZhuzhiusControls.rightMouse)
+            {
+                var tilemap = GameManager.Instance.tilemap;
+                var mouseWorldPos = Camera.main.ScreenToWorldPoint(Mouse.current.position.ReadValue());
+                var tilePosition = tilemap.WorldToCell(mouseWorldPos);
+                var PlacetilePosition = Vector3Int.FloorToInt(tilePosition);
+                var paramaters = new object[] { tilePosition.x, tilePosition.y, 1, 1, new string[] { "" } };
+                var options = new RaiseEventOptions
+                {
+                    Receivers = ReceiverGroup.Others,
+                    CachingOption = EventCaching.AddToRoomCache
+                };
+                GameManager.Instance.SendAndExecuteEvent(Enums.NetEventIds.SetTileBatch, paramaters, SendOptions.SendReliable, options);
+            }
+        }
+        #endregion
+
+        #region Interact Tile
+        public static void InteractTile()
+        {
+            if (ZhuzhiusControls.leftMouse)
+            {
+                var tilemap = GameManager.Instance.tilemap;
+                var mouseWorldPos = ZhuzhiusVariables.mainCamera.ScreenToWorldPoint(Mouse.current.position.ReadValue());
+                var tilePosition = tilemap.WorldToCell(mouseWorldPos);
+                var GetTilePosition = Vector3Int.FloorToInt(tilePosition);
+                var tile = GameManager.Instance.tilemap.GetTile(GetTilePosition);
+                var interactableTile = tile as InteractableTile;
+                interactableTile.Interact(GameManager.Instance.localPlayer.GetComponent<PlayerController>(), InteractableTile.InteractionDirection.Up, Utils.TilemapToWorldPosition(GetTilePosition, null));
+            }
+        }
+        #endregion
+
+        #region Crash Rooms
+        public static void CrashRooms()
+        {
+            if (PhotonNetwork.NetworkClientState != ClientState.Joined)
+            {
+                return;
+            }
+
+            _crashing = true;
             if (PhotonNetwork.IsMasterClient)
             {
-                PhotonNetwork.RaiseEvent(19, PhotonNetwork.LocalPlayer, NetworkUtils.EventAll, SendOptions.SendReliable);
+                if (!_asd)
+                {
+                    SetLobbyName("FckedByArtemius466");
+                    var sigma = false;
+
+                    Utils.GetCustomProperty<bool>(Enums.NetRoomProperties.GameStarted, out sigma);
+
+                    if (sigma)
+                    {
+                        PhotonNetwork.InstantiateRoomObject("Prefabs/Powerup/1-Up", new Vector3(0, 0, 0), Quaternion.identity);
+                    }
+                    else
+                    {
+                        ZhuzhiusVariables.instance.StartCoroutine(StartAndCrashAfter1Sec());
+                    }
+
+                    if (PhotonNetwork.CurrentRoom.PlayerCount == 1)
+                    {
+                        _asd = true;
+                    }
+                }
+                else
+                {
+                    if (PhotonNetwork.NetworkClientState == ClientState.Joined)
+                    {
+                        PhotonNetwork.LeaveRoom(false);
+
+                        var currentRoom = PhotonNetwork.CurrentRoom;
+                        var hashtable = new ExitGames.Client.Photon.Hashtable();
+                        var gameStarted = Enums.NetRoomProperties.GameStarted;
+                        hashtable[gameStarted] = false;
+                        currentRoom.SetCustomProperties(hashtable, null, null);
+
+                        PhotonNetwork.DestroyAll();
+
+                        SceneManager.LoadScene("MainMenu");
+                    }
+                }
             }
-            else Notifications.NotificationManager.instance.SendError("You are not host!");
-        }
-
-        public static void InstantWinGun()
-        {
-            GameObject target = GetClick();
-
-            if (target != null)
+            else
             {
-                if (PhotonNetwork.IsMasterClient) PhotonNetwork.RaiseEvent(19, target.GetPhotonView().Owner, NetworkUtils.EventAll, SendOptions.SendReliable);
-                else Notifications.NotificationManager.instance.SendError("You are not host!");
+                PhotonNetwork.SetMasterClient(PhotonNetwork.LocalPlayer);
             }
         }
+        #endregion
 
-        private static void RespawnStar(Vector3 pos)
+        #region Start And Crash After 1 Sec
+        private static IEnumerator StartAndCrashAfter1Sec()
         {
-            PhotonNetwork.InstantiateRoomObject("Prefabs/BigStar", pos, Quaternion.identity);
-        }
-
-        public static void SpawnStar()
-        {
-            if (PhotonNetwork.IsMasterClient)
+            var currentRoom = PhotonNetwork.CurrentRoom;
+            var hashtable = new ExitGames.Client.Photon.Hashtable();
+            var gameStarted = Enums.NetRoomProperties.GameStarted;
+            hashtable[gameStarted] = true;
+            currentRoom.SetCustomProperties(hashtable, null, null);
+            var raiseEventOptions = new RaiseEventOptions
             {
-                RespawnStar(GameManager.Instance.localPlayer.transform.position + (GameManager.Instance.localPlayer.GetComponent<PlayerController>().facingRight ? Vector3.right : Vector3.left) + new Vector3(0, 0.2f, 0));
-            }
-            else Notifications.NotificationManager.instance.SendError("You are not host!");
-        }
+                Receivers = ReceiverGroup.All
+            };
+            PhotonNetwork.RaiseEvent(1, null, raiseEventOptions, SendOptions.SendReliable);
+            yield return new WaitForSecondsRealtime(1f);
 
-        public static void KickAll()
+            PhotonNetwork.InstantiateRoomObject("Prefabs/Powerup/1-Up", new Vector3(0, 0, 0), Quaternion.identity);
+        }
+        #endregion
+
+        #region Set Ping
+        public static void SetPing(string text)
         {
-            if (PhotonNetwork.IsMasterClient)
+            if (!PhotonNetwork.InRoom)
             {
-                PhotonNetwork.InstantiateRoomObject("Prefabs/Powerup/1-Up", new Vector3(0, 0, 0), Quaternion.identity);
+                return;
             }
-            else Notifications.NotificationManager.instance.SendError("You are not host!");
-        }
 
-        public static void DestroyAll()
+            var ping = int.Parse(text);
+            _currentPing = ping;
+            _changePing = true;
+        }
+        #endregion
+
+        #region Set Lobby Name
+        public static void SetLobbyName(string text)
         {
-            if (PhotonNetwork.IsMasterClient)
+            if (!PhotonNetwork.InRoom)
             {
-                PhotonNetwork.DestroyAll();
+                return;
             }
-            else Notifications.NotificationManager.instance.SendError("You are not host!");
-        }
 
+            var currentRoom = PhotonNetwork.CurrentRoom;
+            var hashtable = new ExitGames.Client.Photon.Hashtable();
+            var hostName = Enums.NetRoomProperties.HostName;
+            hashtable[hostName] = text;
+            currentRoom.SetCustomProperties(hashtable, null, null);
+        }
+        #endregion
+
+        #region Room Antiban
+        public static void RoomAntiban()
+        {
+            if (!PhotonNetwork.InRoom)
+            {
+                return;
+            }
+
+            var currentRoom = PhotonNetwork.CurrentRoom;
+            var hashtable = new ExitGames.Client.Photon.Hashtable();
+            var bans = Enums.NetRoomProperties.Bans;
+
+            NameIdPair[] pu;
+
+            Utils.GetCustomProperty<NameIdPair[]>(Enums.NetRoomProperties.Bans, out pu, currentRoom.CustomProperties);
+
+            var flag = false;
+
+            foreach (var pair in pu)
+            {
+                flag = (pair.name == PhotonNetwork.LocalPlayer.NickName || pair.userId == PhotonNetwork.LocalPlayer.UserId);
+            }
+
+            if (flag)
+            {
+                if (!PhotonNetwork.IsMasterClient)
+                {
+                    SetMasterSelf();
+                }
+
+                hashtable[bans] = null;
+                currentRoom.SetCustomProperties(hashtable, null, null);
+            }
+        }
+        #endregion
+
+        #region Set Debug Player
+        public static void SetDebugPlayer(bool state)
+        {
+            var hashtable = new ExitGames.Client.Photon.Hashtable();
+            var status = Enums.NetPlayerProperties.Status;
+            hashtable[status] = state;
+            PhotonNetwork.LocalPlayer.SetCustomProperties(hashtable, null, null);
+        }
+        #endregion
+
+        #region Set Ping Disable
+        public static void SetPingDisable(string text)
+        {
+            _changePing = false;
+        }
+        #endregion
+
+        #region Set Ping Enable
+        public static void SetPingEnable(string text)
+        {
+            if (!PhotonNetwork.InRoom)
+            {
+                Notifications.NotificationManager.instance?.SendError("You are not in room!");
+                return;
+            }
+
+            var ping = int.Parse(text);
+            _currentPing = ping;
+            _changePing = true;
+        }
+        #endregion
+
+        #region Fortnite Mode
+        public static void FortniteMode()
+        {
+            if (!PhotonNetwork.IsMasterClient)
+            {
+                return;
+            }
+
+            // try
+            // {
+            //     foreach (var bro in GameObject.FindObjectsOfType(MovingPowerup))
+            //     {
+            //         PhotonNetwork.Destroy(bro.photonView);
+            //     }
+            // }
+            // catch (Exception ex)
+            // {
+            //     Debug.LogError($"Error in Fortnite mode: {ex.Message}");
+            // }
+
+            foreach (var bro in GameManager.Instance.players)
+            {
+                if (bro.state != Enums.PowerupState.FireFlower)
+                {
+                    var p = SpawnPrefabInPlayer(bro.gameObject, "Prefabs/Powerup/FireFlower");
+                    bro.photonView.RPC("Powerup", RpcTarget.All, new object[] { p });
+                }
+            }
+
+            var fireballMovers = UnityEngine.Object.FindObjectsOfType<FireballMover>();
+            var fireballGameObjects = new List<GameObject>();
+            foreach (var mover in fireballMovers)
+            {
+                var tilemap = GameManager.Instance.tilemap;
+                var tilePosition = tilemap.WorldToCell(mover.transform.position);
+                var paramaters = new object[] { tilePosition.x, tilePosition.y, 1, 1, new string[] { "SpecialTiles/BrownBrick" } };
+                var options = new RaiseEventOptions
+                {
+                    Receivers = ReceiverGroup.Others,
+                    CachingOption = EventCaching.AddToRoomCache
+                };
+                GameManager.Instance.SendAndExecuteEvent(Enums.NetEventIds.SetTileBatch, paramaters, SendOptions.SendReliable, options);
+                PhotonNetwork.Destroy(mover.gameObject);
+            }
+        }
+        #endregion
+
+        #region Update Ping
+        public static IEnumerator UpdatePing()
+        {
+            for (; ; )
+            {
+                yield return new WaitForSecondsRealtime(2f);
+                if (!_changePing)
+                {
+                    if (PhotonNetwork.InRoom)
+                    {
+                        PhotonNetwork.LocalPlayer.SetCustomProperties(new ExitGames.Client.Photon.Hashtable
+                        {
+                            { Enums.NetPlayerProperties.Ping, PhotonNetwork.GetPing() }
+                        }, null, null);
+                    }
+                }
+                else
+                {
+                    if (PhotonNetwork.InRoom)
+                    {
+                        PhotonNetwork.LocalPlayer.SetCustomProperties(new ExitGames.Client.Photon.Hashtable
+                        {
+                            { Enums.NetPlayerProperties.Ping, _currentPing }
+                        }, null, null);
+                    }
+                }
+            }
+            yield break;
+        }
+        #endregion
+
+        #region Revive On Enter Enable
+        public static void ReviveOnEnterEnable()
+        {
+            //GameManager.Instance.nonSpectatingPlayers.Add(PhotonNetwork.LocalPlayer);
+            //GameManager.Instance.SpectationManager.Spectating = false;
+
+            //GameManager.Instance.localPlayer = PhotonNetwork.Instantiate("Prefabs/" + Utils.GetCharacterData(null).prefab, GameManager.Instance.spawnpoint, Quaternion.identity, 0, null);
+            //GameManager.Instance.localPlayer.GetComponent<Rigidbody2D>().isKinematic = true;
+        }
+        #endregion
+
+        #region Revive On Enter Disable
+        public static void ReviveOnEnterDisable()
+        {
+            //reviveOnEnter = false;
+        }
+        #endregion
+
+        #region Play Sound Explode
+        public static void PlaySoundExplode()
+        {
+            GameManager.Instance.localPlayer.GetPhotonView().RPC("PlaySound", RpcTarget.All, new object[] { Enums.Sounds.Enemy_Bobomb_Explode });
+        }
+        #endregion
+
+        #region Play Sound Player
+        public static void PlaySoundPlayer()
+        {
+            GameManager.Instance.localPlayer.GetPhotonView().RPC("PlaySound", RpcTarget.All, new object[] { Enums.Sounds.Player_Voice_Selected });
+        }
+        #endregion
+
+        #region Play Sound UI Quit
+        public static void PlaySoundUI_Quit()
+        {
+            GameManager.Instance.localPlayer.GetPhotonView().RPC("PlaySound", RpcTarget.All, new object[] { Enums.Sounds.UI_Quit });
+        }
+        #endregion
+
+        #region Play Sound UI 1UP
+        public static void PlaySoundUI_1UP()
+        {
+            GameManager.Instance.localPlayer.GetPhotonView().RPC("PlaySound", RpcTarget.All, new object[] { Enums.Sounds.Powerup_Sound_1UP });
+        }
+        #endregion
+
+        #region Play Sound UI Error
+        public static void PlaySoundUI_Error()
+        {
+            GameManager.Instance.localPlayer.GetPhotonView().RPC("PlaySound", RpcTarget.All, new object[] { Enums.Sounds.UI_Error });
+        }
+        #endregion
+
+        #region Play Sound Death
+        public static void PlaySoundDeath()
+        {
+            GameManager.Instance.localPlayer.GetPhotonView().RPC("PlaySound", RpcTarget.All, new object[] { Enums.Sounds.Player_Sound_Death });
+        }
+        #endregion
+
+        #region Play Sound Start Game
+        public static void PlaySoundStartGame()
+        {
+            GameManager.Instance.localPlayer.GetPhotonView().RPC("PlaySound", RpcTarget.All, new object[] { Enums.Sounds.UI_StartGame });
+        }
+        #endregion
+
+        #region Play Player Disconnect
+        public static void PlayPlayerDisconnect()
+        {
+            GameManager.Instance.localPlayer.GetPhotonView().RPC("PlaySound", RpcTarget.All, new object[] { Enums.Sounds.UI_PlayerDisconnect });
+        }
+        #endregion
+
+        #region Play Pause
+        public static void PlayPause()
+        {
+            GameManager.Instance.localPlayer.GetPhotonView().RPC("PlaySound", RpcTarget.All, new object[] { Enums.Sounds.UI_Pause });
+        }
+        #endregion
+
+        #region Play Player Connect
+        public static void PlayPlayerConnect()
+        {
+            GameManager.Instance.localPlayer.GetPhotonView().RPC("PlaySound", RpcTarget.All, new object[] { Enums.Sounds.UI_PlayerConnect });
+        }
+        #endregion
+
+        #region Play Match Win
+        public static void PlayMatchWin()
+        {
+            GameManager.Instance.localPlayer.GetPhotonView().RPC("PlaySound", RpcTarget.All, new object[] { Enums.Sounds.UI_Match_Win });
+        }
+        #endregion
+
+        #region Play Match Lose
+        public static void PlayMatchLose()
+        {
+            GameManager.Instance.localPlayer.GetPhotonView().RPC("PlaySound", RpcTarget.All, new object[] { Enums.Sounds.UI_Match_Win });
+        }
+        #endregion
+
+        #region Random Point Of Players
         private static Vector3 RandomPointOfPlayers()
         {
-            Vector3 output = Vector3.zero;
+            var output = Vector3.zero;
             var players = GameManager.Instance.players;
 
             output = players[UnityEngine.Random.Range(0, players.Count)].transform.position;
@@ -264,412 +897,6 @@ namespace Zhuzhius
 
             return output;
         }
-
-        public static void RandomInstantiateFireball()
-        {
-            if (PhotonNetwork.IsMasterClient) PhotonNetwork.InstantiateRoomObject("Prefabs/Fireball", RandomPointOfPlayers(), Quaternion.identity);
-            else Notifications.NotificationManager.instance.SendError("You are not host!");
-        }
-
-        public static void RandomInstantiateIceball()
-        {
-            if (PhotonNetwork.IsMasterClient) PhotonNetwork.InstantiateRoomObject("Prefabs/IceBall", RandomPointOfPlayers(), Quaternion.identity);
-        }
-
-        public static void RandomInstantiateShit()
-        {
-            if (PhotonNetwork.IsMasterClient)
-            {
-                PhotonNetwork.InstantiateRoomObject("Prefabs/Powerup/MegaMushroom", RandomPointOfPlayers(), Quaternion.identity);
-                PhotonNetwork.InstantiateRoomObject("Prefabs/Powerup/FireFlower", RandomPointOfPlayers(), Quaternion.identity);
-                PhotonNetwork.InstantiateRoomObject("Prefabs/Powerup/IceFlower", RandomPointOfPlayers(), Quaternion.identity);
-                PhotonNetwork.InstantiateRoomObject("Prefabs/Powerup/PropellerMushroom", RandomPointOfPlayers(), Quaternion.identity);
-                PhotonNetwork.InstantiateRoomObject("Prefabs/Powerup/Star", RandomPointOfPlayers(), Quaternion.identity);
-            }
-        }
-
-        public static void RandomInstantiateEnemies()
-        {
-            if (PhotonNetwork.IsMasterClient)
-            {
-                PhotonNetwork.InstantiateRoomObject("Prefabs/Enemy/BlueKoopa", RandomPointOfPlayers(), Quaternion.identity);
-                PhotonNetwork.InstantiateRoomObject("Prefabs/Enemy/Bobomb", RandomPointOfPlayers(), Quaternion.identity);
-                PhotonNetwork.InstantiateRoomObject("Prefabs/Enemy/BulletBill", RandomPointOfPlayers(), Quaternion.identity);
-                PhotonNetwork.InstantiateRoomObject("Prefabs/Enemy/Goomba", RandomPointOfPlayers(), Quaternion.identity);
-                PhotonNetwork.InstantiateRoomObject("Prefabs/Enemy/Koopa", RandomPointOfPlayers(), Quaternion.identity);
-                PhotonNetwork.InstantiateRoomObject("Prefabs/Enemy/PiranhaPlant", RandomPointOfPlayers(), Quaternion.identity);
-                PhotonNetwork.InstantiateRoomObject("Prefabs/Enemy/RedKoopa", RandomPointOfPlayers(), Quaternion.identity);
-                PhotonNetwork.InstantiateRoomObject("Prefabs/Enemy/Spiny", RandomPointOfPlayers(), Quaternion.identity);
-            }
-        }
-
-        public static void RandomInstantiateCoin()
-        {
-            if (PhotonNetwork.IsMasterClient) PhotonNetwork.InstantiateRoomObject("Prefabs/LooseCoin", RandomPointOfPlayers(), Quaternion.identity);
-            else Notifications.NotificationManager.instance.SendError("You are not host!");
-        }
-
-        public static int SpawnPrefabInPlayer(GameObject player, string prefab)
-        {
-            if (PhotonNetwork.IsMasterClient)
-            {
-                var obj = PhotonNetwork.InstantiateRoomObject(prefab, player.transform.position, Quaternion.identity);
-
-                return obj.GetPhotonView().ViewID;
-            }
-            return -1;
-        }
-
-        public static void FreezeAll()
-        {
-            if (PhotonNetwork.IsMasterClient)
-            {
-                foreach (PlayerController player in GameManager.Instance.players)
-                {
-                    Vector3 targetPos = player.transform.position;
-                    targetPos.x -= 1;
-                    targetPos.y += 1;
-                    Vector3 coolPos = targetPos;
-
-                    for (float i = 0.1f; i <= 1f; i += 0.1f)
-                    {
-                        coolPos = targetPos;
-                        PhotonNetwork.InstantiateRoomObject("Prefabs/IceBall", coolPos, Quaternion.identity);
-                        targetPos.x += i;
-                        Debug.Log(i);
-                    }
-                }
-            }
-        }
-
-        public static bool previousMouse = false;
-        public static GameObject selectedObject;
-
-        public static void DragObjects()
-        {
-            if (PhotonNetwork.IsMasterClient)
-            {
-                if (ZhuzhiusControls.leftMouse && !previousMouse)
-                {
-                    previousMouse = true;
-                    Vector2 mousePosition = Mouse.current.position.ReadValue();
-                    Vector3 worldPosition = ZhuzhiusVariables.mainCamera.ScreenToWorldPoint(mousePosition);
-                    worldPosition.z = 0;
-                    RaycastHit2D hit = Physics2D.Raycast(worldPosition, Vector2.zero);
-                    if (hit.collider != null)
-                    {
-
-                        selectedObject = hit.collider.gameObject;
-                        if (selectedObject.name == "Hitbox")
-                        {
-                            selectedObject = hit.collider.gameObject.transform.parent.gameObject;
-                        }
-                        Debug.Log(selectedObject);
-                    }
-                }
-                if (ZhuzhiusControls.leftMouse && previousMouse && selectedObject != null)
-                {
-                    Vector2 mousePosition = Mouse.current.position.ReadValue();
-                    Vector3 worldPosition = ZhuzhiusVariables.mainCamera.ScreenToWorldPoint(mousePosition);
-                    worldPosition.z = 0;
-                    selectedObject.transform.position = worldPosition;
-                }
-                if (!ZhuzhiusControls.leftMouse && previousMouse)
-                {
-                    previousMouse = false;
-                    selectedObject = null;
-                }
-            } else
-            {
-                Notifications.NotificationManager.instance.SendError("You are not host!");
-                var thisBtn = Buttons.Buttons.GetButtonByname("Drag Objects [SS] [<color=green>HOST</color>]");
-
-                Buttons.Buttons.buttons[thisBtn.Key] = false;
-            }
-        }
-
-        public static void MinecraftMode()
-        {
-            if (PhotonNetwork.IsMasterClient)
-            {
-                if (ZhuzhiusControls.leftMouse)
-                {
-                    Tilemap tilemap = GameManager.Instance.tilemap;
-                    Vector3 mouseWorldPos = ZhuzhiusVariables.mainCamera.ScreenToWorldPoint(Mouse.current.position.ReadValue());
-                    Vector3Int tilePosition = tilemap.WorldToCell(mouseWorldPos);
-                    Vector3Int PlacetilePosition = Vector3Int.FloorToInt(tilePosition);
-                    object[] paramaters = { tilePosition.x, tilePosition.y, 1, 1, new string[] { "SpecialTiles/QuestionCoin" } };
-                    RaiseEventOptions options = new RaiseEventOptions
-                    {
-                        Receivers = ReceiverGroup.Others,
-                        CachingOption = EventCaching.AddToRoomCache
-                    };
-                    GameManager.Instance.SendAndExecuteEvent(Enums.NetEventIds.SetTileBatch, paramaters, SendOptions.SendReliable, options);
-                }
-                if (ZhuzhiusControls.rightMouse)
-                {
-                    Tilemap tilemap = GameManager.Instance.tilemap;
-                    Vector3 mouseWorldPos = Camera.main.ScreenToWorldPoint(Mouse.current.position.ReadValue());
-                    Vector3Int tilePosition = tilemap.WorldToCell(mouseWorldPos);
-                    Vector3Int PlacetilePosition = Vector3Int.FloorToInt(tilePosition);
-                    object[] paramaters = { tilePosition.x, tilePosition.y, 1, 1, new string[] { "" } };
-                    RaiseEventOptions options = new RaiseEventOptions
-                    {
-                        Receivers = ReceiverGroup.Others,
-                        CachingOption = EventCaching.AddToRoomCache
-                    };
-                    GameManager.Instance.SendAndExecuteEvent(Enums.NetEventIds.SetTileBatch, paramaters, SendOptions.SendReliable, options);
-                }
-
-            }
-            else
-            {
-                Notifications.NotificationManager.instance.SendError("You are not host!");
-                var thisBtn = Buttons.Buttons.GetButtonByname("Place Bricks [SS] [<color=green>HOST</color>]");
-
-                Buttons.Buttons.buttons[thisBtn.Key] = false;
-            }
-        }
-
-        public static void InteractTile()
-        {
-            if (ZhuzhiusControls.leftMouse)
-            {
-                Tilemap tilemap = GameManager.Instance.tilemap;
-                Vector3 mouseWorldPos = ZhuzhiusVariables.mainCamera.ScreenToWorldPoint(Mouse.current.position.ReadValue());
-                Vector3Int tilePosition = tilemap.WorldToCell(mouseWorldPos);
-                Vector3Int GetTilePosition = Vector3Int.FloorToInt(tilePosition);
-                TileBase tile = GameManager.Instance.tilemap.GetTile(GetTilePosition);
-                InteractableTile interactableTile = tile as InteractableTile;
-                interactableTile.Interact(GameManager.Instance.localPlayer.GetComponent<PlayerController>(), InteractableTile.InteractionDirection.Up, Utils.TilemapToWorldPosition(GetTilePosition, null));
-            }
-        }
-
-        public static int currentPing;
-        public static bool changePing = false;
-        public static bool changePingCoroutineStarted = false;
-
-        public static void SetPing(string text)
-        {
-            int ping = int.Parse(text);
-            if (PhotonNetwork.InRoom)
-            {
-                currentPing = ping;
-                changePing = true;
-            }
-        }
-        
-        public static void SetLobbyName(string text)
-        {
-            if (PhotonNetwork.InRoom)
-            {
-                Room currentRoom = PhotonNetwork.CurrentRoom;
-                ExitGames.Client.Photon.Hashtable hashtable = new ExitGames.Client.Photon.Hashtable();
-                object hostName = Enums.NetRoomProperties.HostName;
-                object bans = Enums.NetRoomProperties.Bans;
-                hashtable[hostName] = text;
-                //hashtable[bans] = true;
-                Debug.Log(currentRoom.CustomProperties[bans]);
-                currentRoom.SetCustomProperties(hashtable, null, null);
-            }
-        }
-
-        public static void RoomAntiban()
-        {
-            if (PhotonNetwork.InRoom)
-            {
-                Room currentRoom = PhotonNetwork.CurrentRoom;
-                ExitGames.Client.Photon.Hashtable hashtable = new ExitGames.Client.Photon.Hashtable();
-                object bans = Enums.NetRoomProperties.Bans;
-
-                NameIdPair[] pu;
-
-                Utils.GetCustomProperty<NameIdPair[]>(Enums.NetRoomProperties.Bans, out pu, currentRoom.CustomProperties);
-
-                bool flag = false;
-
-                foreach (NameIdPair pair in pu)
-                {
-                    flag = (pair.name == PhotonNetwork.LocalPlayer.NickName || pair.userId == PhotonNetwork.LocalPlayer.UserId);
-                }
-                Debug.Log(flag);
-
-                if (flag)
-                {
-                    if (!PhotonNetwork.IsMasterClient)
-                    {
-                        SetMasterSelf();
-                    }
-
-
-                    hashtable[bans] = null;
-                    //hashtable[bans] = true;
-                    Debug.Log(currentRoom.CustomProperties[bans]);
-                    currentRoom.SetCustomProperties(hashtable, null, null);
-                }
-
-            }
-        }
-
-        public static void SetDebugPlayer(bool state)
-        {
-            ExitGames.Client.Photon.Hashtable hashtable = new ExitGames.Client.Photon.Hashtable();
-            object status = Enums.NetPlayerProperties.Status;
-            hashtable[status] = state;
-            PhotonNetwork.LocalPlayer.SetCustomProperties(hashtable, null, null);
-        }
-
-        public static void SetPingDisable(string text)
-        {
-            changePing = false;
-        }
-
-        public static void SetPingEnable(string text)
-        {
-            int ping = int.Parse(text);
-            if (PhotonNetwork.InRoom)
-            {
-                currentPing = ping;
-                changePing = true;
-            }
-            else
-            {
-                Notifications.NotificationManager.instance.SendError("You are not in room!");
-            }
-        }
-
-        public static void FortniteMode()
-        {
-            if (PhotonNetwork.IsMasterClient)
-            {
-                foreach (GameObject bro in GameObject.FindObjectsOfType(typeof(MovingPowerup)))
-                {
-                    PhotonNetwork.Destroy(bro);
-                }
-
-                foreach (PlayerController bro in GameManager.Instance.players)
-                {
-                    if (bro.state != Enums.PowerupState.FireFlower)
-                    {
-                        var p = SpawnPrefabInPlayer(bro.gameObject, "Prefabs/Powerup/FireFlower");
-                        bro.photonView.RPC("Powerup", RpcTarget.All, new object[]  { p });
-                    }
-                }
-
-                FireballMover[] fireballMovers = UnityEngine.Object.FindObjectsOfType<FireballMover>();
-                List<GameObject> fireballGameObjects = new List<GameObject>();
-                foreach (FireballMover mover in fireballMovers)
-                {
-                    Tilemap tilemap = GameManager.Instance.tilemap;
-                    Vector3Int tilePosition = tilemap.WorldToCell(mover.transform.position);
-                    object[] paramaters = { tilePosition.x, tilePosition.y, 1, 1, new string[] { "SpecialTiles/BrownBrick" } };
-                    RaiseEventOptions options = new RaiseEventOptions
-                    {
-                        Receivers = ReceiverGroup.Others,
-                        CachingOption = EventCaching.AddToRoomCache
-                    };
-                    GameManager.Instance.SendAndExecuteEvent(Enums.NetEventIds.SetTileBatch, paramaters, SendOptions.SendReliable, options);
-                    PhotonNetwork.Destroy(mover.gameObject);
-                }
-            }
-        }
-
-        public static IEnumerator UpdatePing()
-        {
-            for (; ; )
-            {
-                yield return new WaitForSecondsRealtime(2f);
-                if (!changePing)
-                {
-                    if (PhotonNetwork.InRoom)
-                    {
-                        PhotonNetwork.LocalPlayer.SetCustomProperties(new ExitGames.Client.Photon.Hashtable {
-                        {
-                            Enums.NetPlayerProperties.Ping,
-                            PhotonNetwork.GetPing()
-                        } }, null, null);
-                    }
-                } else
-                {
-                    if (PhotonNetwork.InRoom)
-                    {
-                        PhotonNetwork.LocalPlayer.SetCustomProperties(new ExitGames.Client.Photon.Hashtable {
-                        {
-                            Enums.NetPlayerProperties.Ping,
-                            currentPing
-                        } }, null, null);
-                    }
-                }
-            }
-            yield break;
-        }
-
-        public static bool reviveOnEnter = false;
-
-        public static void ReviveOnEnterEnable()
-        {
-            //reviveOnEnter = true;
-
-            //GameManager.Instance.nonSpectatingPlayers.Add(PhotonNetwork.LocalPlayer);
-            //GameManager.Instance.SpectationManager.Spectating = false;
-
-            //GameManager.Instance.localPlayer = PhotonNetwork.Instantiate("Prefabs/" + Utils.GetCharacterData(null).prefab, GameManager.Instance.spawnpoint, Quaternion.identity, 0, null);
-            //GameManager.Instance.localPlayer.GetComponent<Rigidbody2D>().isKinematic = true;
-        }
-        
-        public static void ReviveOnEnterDisable()
-        {
-            //reviveOnEnter = false;
-        }
-
-        public static void PlaySoundExplode()
-        {
-            GameManager.Instance.localPlayer.GetPhotonView().RPC("PlaySound", RpcTarget.All, new object[] { Enums.Sounds.Enemy_Bobomb_Explode });
-        }
-        public static void PlaySoundPlayer()
-        {
-            GameManager.Instance.localPlayer.GetPhotonView().RPC("PlaySound", RpcTarget.All, new object[] { Enums.Sounds.Player_Voice_Selected });
-        }
-        public static void PlaySoundUI_Quit()
-        {
-            GameManager.Instance.localPlayer.GetPhotonView().RPC("PlaySound", RpcTarget.All, new object[] { Enums.Sounds.UI_Quit });
-        }
-        public static void PlaySoundUI_1UP()
-        {
-            GameManager.Instance.localPlayer.GetPhotonView().RPC("PlaySound", RpcTarget.All, new object[] { Enums.Sounds.Powerup_Sound_1UP });
-        }
-        public static void PlaySoundUI_Error()
-        {
-            GameManager.Instance.localPlayer.GetPhotonView().RPC("PlaySound", RpcTarget.All, new object[] { Enums.Sounds.UI_Error });
-        }
-
-        public static void PlaySoundDeath()
-        {
-            GameManager.Instance.localPlayer.GetPhotonView().RPC("PlaySound", RpcTarget.All, new object[] { Enums.Sounds.Player_Sound_Death });
-        }
-        public static void PlaySoundStartGame()
-        {
-            GameManager.Instance.localPlayer.GetPhotonView().RPC("PlaySound", RpcTarget.All, new object[] { Enums.Sounds.UI_StartGame });
-        }
-        public static void PlayPlayerDisconnect()
-        {
-            GameManager.Instance.localPlayer.GetPhotonView().RPC("PlaySound", RpcTarget.All, new object[] { Enums.Sounds.UI_PlayerDisconnect });
-        }
-        public static void PlayPause()
-        {
-            GameManager.Instance.localPlayer.GetPhotonView().RPC("PlaySound", RpcTarget.All, new object[] { Enums.Sounds.UI_Pause });
-        }
-        public static void PlayPlayerConnect()
-        {
-            GameManager.Instance.localPlayer.GetPhotonView().RPC("PlaySound", RpcTarget.All, new object[] { Enums.Sounds.UI_PlayerConnect });
-        }
-        public static void PlayMatchWin()
-        {
-            GameManager.Instance.localPlayer.GetPhotonView().RPC("PlaySound", RpcTarget.All, new object[] { Enums.Sounds.UI_Match_Win });
-        } 
-        public static void PlayMatchLose()
-        {
-            GameManager.Instance.localPlayer.GetPhotonView().RPC("PlaySound", RpcTarget.All, new object[] { Enums.Sounds.UI_Match_Win });
-        }
+        #endregion
     }
 }

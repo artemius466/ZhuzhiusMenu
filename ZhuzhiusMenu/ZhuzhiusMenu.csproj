@@ -17,6 +17,10 @@
   <ItemGroup Condition="'$(TargetFramework.TrimEnd(`0123456789`))' == 'net'">
     <PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies" Version="1.0.2" PrivateAssets="all" />
   </ItemGroup>
+  
+  <ItemGroup>
+    <None Remove="Resources\icon.png" />
+  </ItemGroup>
 
 	<ItemGroup>
 		<Reference Include="0Harmony">
@@ -24,6 +28,9 @@
 		</Reference>
 		<Reference Include="Assembly-CSharp">
 			<HintPath>C:\Users\Гусяпутуся\AppData\Roaming\Godot\app_userdata\MvLO Mod Loader\Installs\vanilla\v1.7.1.0-beta\MarioVsLuigi-Win64-v1.7.1.0-beta.zip\MarioVsLuigi-Win64\NSMB-MarioVsLuigi_Data\Managed\Assembly-CSharp.dll</HintPath>
+		</Reference>
+		<Reference Include="Assembly-CSharp-firstpass">
+		  <HintPath>..\..\..\..\AppData\Roaming\Godot\app_userdata\MvLO Mod Loader\Installs\vanilla\v1.7.1.0-beta\MarioVsLuigi-Win64-v1.7.1.0-beta.zip\MarioVsLuigi-Win64\NSMB-MarioVsLuigi_Data\Managed\Assembly-CSharp-firstpass.dll</HintPath>
 		</Reference>
 		<Reference Include="BepInEx">
 		  <HintPath>..\..\..\..\AppData\Roaming\Godot\app_userdata\MvLO Mod Loader\Installs\vanilla\v1.7.1.0-beta\MarioVsLuigi-Win64-v1.7.1.0-beta.zip\MarioVsLuigi-Win64\BepInEx\core\BepInEx.dll</HintPath>
@@ -256,6 +263,10 @@
 		<Reference Include="UnityEngine.XRModule">
 		  <HintPath>..\..\..\..\AppData\Roaming\Godot\app_userdata\MvLO Mod Loader\Installs\vanilla\v1.7.1.0-beta\MarioVsLuigi-Win64-v1.7.1.0-beta.zip\MarioVsLuigi-Win64\NSMB-MarioVsLuigi_Data\Managed\UnityEngine.XRModule.dll</HintPath>
 		</Reference>
+	</ItemGroup>
+
+	<ItemGroup>
+	  <EmbeddedResource Include="Resources\icon.png" />
 	</ItemGroup>
 
 </Project>
